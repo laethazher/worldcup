@@ -1,0 +1,118 @@
+*, *::before, *::after { box-sizing: border-box; }
+* { margin: 0; }
+
+html { color-scheme: dark; }
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--ink);
+  line-height: var(--lh-base);
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* توهج الملعب المحيطي — قوس الهوية */
+body::before {
+  content: '';
+  position: fixed; inset: -20% -10% auto -10%; height: 70vh;
+  background:
+    radial-gradient(58% 90% at 50% 0%, var(--crimson-glow), transparent 70%),
+    radial-gradient(30% 45% at 82% 8%, var(--taupe-glow), transparent 70%);
+  pointer-events: none; z-index: 0;
+  animation: ambient var(--dur-ambient) ease-in-out infinite alternate;
+}
+@keyframes ambient { from { opacity: .75; transform: translateY(-8px); } to { opacity: 1; transform: translateY(6px); } }
+
+img, svg, canvas { display: block; max-width: 100%; }
+button, input, select, textarea { font: inherit; color: inherit; }
+a { color: inherit; text-decoration: none; }
+::selection { background: var(--crimson); color: #fff; }
+
+h1, h2, h3 { line-height: var(--lh-tight); font-weight: var(--fw-bold); letter-spacing: var(--ls-tight); }
+.num { font-variant-numeric: tabular-nums lining-nums; letter-spacing: var(--ls-base); }
+
+.eyebrow {
+  font-size: var(--text-xs); font-weight: var(--fw-semibold); color: var(--warm);
+  letter-spacing: var(--ls-caps); text-transform: uppercase;
+}
+
+.container { position: relative; z-index: 1; width: min(1180px, 100% - 48px); margin-inline: auto; }
+@media (max-width: 480px) { .container { width: calc(100% - 32px); } }
+
+main.container { padding-block: 34px 90px; }
+
+/* ─── الشريط العلوي ─────────────────────────────────────────────── */
+.nav {
+  position: sticky; top: 0; z-index: var(--z-nav);
+  backdrop-filter: blur(18px) saturate(1.3); -webkit-backdrop-filter: blur(18px) saturate(1.3);
+  background: var(--nav-bg);
+  border-bottom: 1px solid var(--line);
+}
+.nav-inner { display: flex; align-items: center; gap: var(--s-6); min-height: var(--nav-h); padding-block: var(--s-3); }
+
+.brand { display: flex; align-items: center; gap: var(--s-4); flex: none; }
+.brand-logo {
+  height: 38px; width: auto; display: block;   /* نسبة اللوغو محفوظة — ممنوع التمديد */
+  transition: opacity var(--fast) var(--ease);
+}
+.brand:hover .brand-logo { opacity: .88; }
+.brand-sep { width: 1px; height: 26px; background: var(--line-strong); flex: none; }
+.brand-app { font-weight: var(--fw-bold); font-size: var(--text-sm); line-height: var(--lh-tight); }
+.brand-app small { display: block; font-size: var(--text-xs); font-weight: var(--fw-medium); color: var(--muted); letter-spacing: var(--ls-wide); }
+
+.nav-links { display: flex; gap: var(--s-1); margin-inline-start: var(--s-2); }
+.nav-links a {
+  padding: var(--s-2) 14px; border-radius: var(--r-pill); font-size: var(--text-sm); font-weight: var(--fw-medium); color: var(--ink-2);
+  transition: background var(--fast) var(--ease), color var(--fast) var(--ease);
+}
+.nav-links a:hover { background: var(--glass-hi); color: var(--ink); }
+.nav-links a[aria-current="page"] { background: var(--crimson); color: #fff; font-weight: var(--fw-semibold); }
+.nav-side { margin-inline-start: auto; display: flex; align-items: center; gap: var(--s-3); }
+
+.avatar {
+  width: 36px; height: 36px; border-radius: 50%; flex: none; overflow: hidden;
+  background: var(--grad-taupe);
+  border: 1px solid var(--line-strong);
+  display: grid; place-items: center;
+  font-size: var(--text-xs); font-weight: var(--fw-semibold); color: var(--bg);
+}
+.avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+/* ─── التذييل الموقّع ────────────────────────────────────────────── */
+.site-footer { position: relative; z-index: 1; border-top: 1px solid var(--line); margin-top: var(--s-8); }
+.footer-inner {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s-4); flex-wrap: wrap;
+  padding-block: var(--s-6);
+  color: var(--muted); font-size: var(--text-sm);
+}
+.footer-inner img { height: 30px; width: auto; opacity: .92; }
+
+@media (max-width: 768px) {
+  .nav-links { position: fixed; bottom: 0; inset-inline: 0; z-index: calc(var(--z-nav) + 10);
+    background: var(--nav-bg-mobile); backdrop-filter: blur(18px);
+    border-top: 1px solid var(--line);
+    display: flex; justify-content: space-around; padding: var(--s-2) 10px calc(var(--s-2) + env(safe-area-inset-bottom));
+    margin: 0; }
+  main.container { padding-bottom: 130px; }
+  .brand-sep, .brand-app { display: none; }
+  .footer-inner { padding-bottom: calc(74px + env(safe-area-inset-bottom)); justify-content: center; text-align: center; }
+}
+
+/* انتقال بين الصفحات — تحسين تدريجي غير حاجب (المتصفحات الداعمة) */
+@view-transition { navigation: auto; }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: var(--dur-2); animation-timing-function: var(--ease); }
+
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+
+/* دخول الصفحة */
+.rise { animation: t-rise var(--slow) var(--ease) both; }
+.rise-2 { animation: t-rise var(--slow) var(--ease) var(--delay-1) both; }
+.rise-3 { animation: t-rise var(--slow) var(--ease) var(--delay-2) both; }
+.rise-4 { animation: t-rise var(--slow) var(--ease) var(--delay-3) both; }
+
+:focus-visible { outline: 2px solid var(--crimson-hi); outline-offset: 2px; border-radius: 6px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: var(--dur-0) !important; animation-iteration-count: 1 !important; transition-duration: var(--dur-0) !important; }
+}

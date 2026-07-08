@@ -1,0 +1,32 @@
+# نشر «تحدي كأس العالم — الحسني هوم سنتر» على Render (الخطة المجانية) + Turso
+# البيانات تُحفَظ في قاعدة Turso السحابية الدائمة، فلا تُفقد عند نوم/إعادة تشغيل الخادم.
+#
+# قبل النشر: أنشئ قاعدة Turso مجانية وانسخ منها:
+#   TURSO_DATABASE_URL  (يبدأ بـ libsql://…)
+#   TURSO_AUTH_TOKEN
+# ثم الصقهما عند طلب Render لهما (لأنهما sync:false).
+
+services:
+  - type: web
+    name: alhasani-worldcup
+    runtime: node
+    plan: free                 # الخطة المجانية (تنام بعد ١٥ دقيقة خمول؛ البيانات آمنة في Turso)
+    region: frankfurt          # أقرب منطقة للعراق
+    branch: main
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: node server/ensure-seed.js && npm start
+    healthCheckPath: /login.html
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: COOKIE_SECURE
+        value: "1"             # الكوكيز آمنة (Render يوفّر HTTPS)
+      - key: TRUST_PROXY
+        value: "1"
+      - key: JWT_SECRET
+        generateValue: true    # يولّده Render تلقائياً ويثبّته
+      - key: TURSO_DATABASE_URL
+        sync: false            # يطلبه Render منك عند النشر
+      - key: TURSO_AUTH_TOKEN
+        sync: false            # يطلبه Render منك عند النشر
