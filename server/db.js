@@ -64,17 +64,25 @@ for (const _p of ['journal_mode = WAL', 'foreign_keys = ON', 'busy_timeout = 500
   try { db.pragma(_p); } catch (e) { console.warn(`تنبيه pragma (${_p}):`, e.message); }
 }
 
-/* توأمة سلوك better-sqlite3:
-   - إزالة حقل _metadata الذي تضيفه libsql إلى نتائج get()/all() (كي لا يتسرّب لردود الـAPI)
-   - تعليم القاعدة "dirty" عند أي كتابة (run/exec) لتُزامن مع Turso */
+/* توأمة سلوك better-sqlite3 + إصلاح توافق تورسو البعيد:
+   - libsql 0.5.x يكسر ربط المعاملات المسمّاة (@name) على مسار الكتابة البعيد (Hrana).
+     لذا نحوّل كل @name إلى ? ترتيبية عند التحضير، ونعيد ترتيب قيم الكائن حسب ترتيب
+     ظهور الأسماء (مع تكرار الاسم المستعمل أكثر من مرة) — يشتغل بنفس النتيجة محلياً وعلى تورسو.
+   - إزالة حقل _metadata الذي تضيفه libsql إلى نتائج get()/all() (كي لا يتسرّب لردود الـAPI).
+   - تعليم القاعدة "dirty" عند أي كتابة (run/exec) لتُزامن مع Turso. */
 {
   const _prepare = db.prepare.bind(db);
   db.prepare = (sql) => {
-    const st = _prepare(sql);
+    const names = [];
+    const psql = sql.replace(/@([a-zA-Z_][a-zA-Z0-9_]*)/g, (_m, n) => { names.push(n); return '?'; });
+    const st = _prepare(psql);
     const _get = st.get.bind(st), _all = st.all.bind(st), _run = st.run.bind(st);
-    st.get = (...a) => { const r = _get(...a); if (r && typeof r === 'object') delete r._metadata; return r; };
-    st.all = (...a) => { const rs = _all(...a); if (Array.isArray(rs)) for (const r of rs) { if (r && typeof r === 'object') delete r._metadata; } return rs; };
-    st.run = (...a) => { const info = _run(...a); dirty = true; return info; };
+    const toArgs = (a) =>
+      (names.length && a.length === 1 && a[0] && typeof a[0] === 'object' && !Array.isArray(a[0]))
+        ? names.map(n => a[0][n]) : a;
+    st.get = (...a) => { const r = _get(...toArgs(a)); if (r && typeof r === 'object') delete r._metadata; return r; };
+    st.all = (...a) => { const rs = _all(...toArgs(a)); if (Array.isArray(rs)) for (const r of rs) { if (r && typeof r === 'object') delete r._metadata; } return rs; };
+    st.run = (...a) => { const info = _run(...toArgs(a)); dirty = true; return info; };
     return st;
   };
   const _exec = db.exec.bind(db);
