@@ -28,9 +28,8 @@ export function scoreMatch(matchId) {
   if (!m || m.status !== 'finished') return;
   const R = RULES();
   const preds = db.prepare('SELECT * FROM predictions WHERE match_id = ?').all(matchId);
-  const upd = db.prepare(`UPDATE predictions SET points_base=?, points_qual=?, points_total=?, is_exact=?, is_direction=? WHERE id=?`);
-
-  const upd2 = db.prepare(`UPDATE predictions SET calc_multiplier=?, calc_reason=?, calc_breakdown=? WHERE id=?`);
+  const upd = db.prepare(`UPDATE predictions SET points_base=?, points_qual=?, points_total=?, is_exact=?, is_direction=?,
+                          calc_multiplier=?, calc_reason=?, calc_breakdown=? WHERE id=?`);
 
   // النقاط ٥ / ٢ / ٠ فقط — بلا نقاط «متأهل» منفصلة.
   const matchIsDraw = m.home_score === m.away_score; // انتهت بالتعادل ⇒ حُسمت بركلات الترجيح
@@ -54,24 +53,29 @@ export function scoreMatch(matchId) {
       else                    { base = R.wrong;  kind = 'توقع خاطئ'; isExact = 0; isDir = 0; }
     }
 
-    upd.run(base, 0, base, isExact, isDir, p.id);              // points_qual ثابت ٠ (لا مكافأة متأهل)
-    upd2.run(1, kind, JSON.stringify({ kind, base, total: base }), p.id);
+    // كتابة واحدة لكل توقّع (بدل اثنتين). points_qual ثابت ٠ (لا مكافأة متأهل)
+    upd.run(base, 0, base, isExact, isDir, 1, kind, JSON.stringify({ kind, base, total: base }), p.id);
   }
 }
 
-/** Full recalculation: all finished matches → achievements → rank snapshot. Returns { board, granted }. */
+/** Full recalculation: all finished matches → achievements → rank snapshot. Returns { board, granted }.
+ *  كل الكتابات داخل معاملة واحدة: ذرية (تكتمل كلها أو تتراجع كلها — لا حالة نصفية عند أي فشل)،
+ *  ومزامنة تورسو تحصل مرة واحدة بعدها بدل عشرات المرات. */
 export function recalcAll(ctx = {}) {
-  db.prepare(`UPDATE predictions SET points_base=NULL, points_qual=NULL, points_total=NULL,
-              is_exact=NULL, is_direction=NULL, calc_multiplier=NULL, calc_reason=NULL, calc_breakdown=NULL`).run();
-  const finished = db.prepare(`SELECT id FROM matches WHERE status='finished' ORDER BY kickoff_utc`).all();
-  for (const m of finished) scoreMatch(m.id);
-  const granted = computeAchievements();
-  const board = leaderboard();
-  snapshotRanks(board);
-  db.prepare(`INSERT INTO scoring_runs(trigger_type, match_id, players, total_points, granted, actor_name)
-              VALUES(?,?,?,?,?,?)`)
-    .run(ctx.trigger || 'manual', ctx.match_id ?? null, board.length,
-         board.reduce((a, r) => a + r.points, 0), granted.length, ctx.actor ?? null);
+  let board, granted;
+  db.transaction(() => {
+    db.prepare(`UPDATE predictions SET points_base=NULL, points_qual=NULL, points_total=NULL,
+                is_exact=NULL, is_direction=NULL, calc_multiplier=NULL, calc_reason=NULL, calc_breakdown=NULL`).run();
+    const finished = db.prepare(`SELECT id FROM matches WHERE status='finished' ORDER BY kickoff_utc`).all();
+    for (const m of finished) scoreMatch(m.id);
+    granted = computeAchievements();
+    board = leaderboard();
+    snapshotRanks(board);
+    db.prepare(`INSERT INTO scoring_runs(trigger_type, match_id, players, total_points, granted, actor_name)
+                VALUES(?,?,?,?,?,?)`)
+      .run(ctx.trigger || 'manual', ctx.match_id ?? null, board.length,
+           board.reduce((a, r) => a + r.points, 0), granted.length, ctx.actor ?? null);
+  })();
   return { board, granted };
 }
 
@@ -99,11 +103,20 @@ export function leaderboard(opts = {}) {
     GROUP BY e.id
   `).all(opts.role ?? null, opts.role ?? null);
 
+  // خرائط مجمّعة بدل استعلامين لكل موظف (نفس النتائج تماماً، لكن ~٢ استعلام بدل ٢×عدد الموظفين)
+  const streakMap = currentStreakAll();
+  const achMap = new Map();
+  for (const a of db.prepare('SELECT employee_id, code FROM achievements').all()) {
+    let arr = achMap.get(a.employee_id);
+    if (!arr) { arr = []; achMap.set(a.employee_id, arr); }
+    arr.push(a.code);
+  }
+
   for (const r of rows) {
     r.champion_bonus = (champ && r.champion_team === champ) ? R.champion_bonus : 0;
     r.points += r.champion_bonus;
     r.accuracy = r.scored_count ? Math.round((r.direction_count / r.scored_count) * 100) : 0;
-    r.streak = currentStreak(r.id);
+    r.streak = streakMap.get(r.id) ?? 0;
   }
 
   rows.sort((a, b) =>
@@ -119,9 +132,25 @@ export function leaderboard(opts = {}) {
     const was = prev.get(r.id);
     r.prev_rank = was ?? null;
     r.delta = was ? was - r.rank : 0;
-    r.achievements = db.prepare('SELECT code FROM achievements WHERE employee_id=?').all(r.id).map(a => a.code);
+    r.achievements = achMap.get(r.id) ?? [];
   });
   return rows;
+}
+
+/** أطول-متتالية حالية لكل الموظفين دفعة واحدة — نفس منطق currentStreak بالضبط، باستعلام واحد. */
+function currentStreakAll() {
+  const map = new Map();
+  let curEmp = null, streak = 0, counting = true;
+  for (const r of db.prepare(`
+    SELECT p.employee_id AS id, p.is_direction AS d
+    FROM predictions p JOIN matches mm ON mm.id = p.match_id
+    WHERE mm.status='finished'
+    ORDER BY p.employee_id, mm.kickoff_utc DESC`).all()) {
+    if (r.id !== curEmp) { if (curEmp !== null) map.set(curEmp, streak); curEmp = r.id; streak = 0; counting = true; }
+    if (counting) { if (r.d) streak++; else counting = false; }
+  }
+  if (curEmp !== null) map.set(curEmp, streak);
+  return map;
 }
 
 function currentStreak(empId) {
@@ -167,9 +196,10 @@ export function branchLeaderboard() {
 }
 
 function snapshotRanks(board) {
-  const del = db.prepare('DELETE FROM rank_snapshots');
+  // recalcAll يلفّ العملية كلها بمعاملة واحدة، فنكتب مباشرة بلا معاملة داخلية (نتجنّب التداخل).
+  db.prepare('DELETE FROM rank_snapshots').run();
   const ins = db.prepare('INSERT INTO rank_snapshots(employee_id, rank) VALUES(?,?)');
-  db.transaction(() => { del.run(); board.forEach(r => ins.run(r.id, r.rank)); })();
+  for (const r of board) ins.run(r.id, r.rank);
 }
 
 // ------------------------------------------------------------------ achievements
@@ -249,31 +279,85 @@ export function computeAchievements() {
   const curRank = new Map(light.map((r, i) => [r.id, i + 1]));
   const prevRank = new Map(db.prepare('SELECT employee_id, rank FROM rank_snapshots').all().map(r => [r.employee_id, r.rank]));
 
+  // إحصاءات كل الموظفين دفعة واحدة (بدل achStats لكل موظف) — قيم مطابقة تماماً
+  const stats = bulkStats();
+  const EMPTY = { exact:0, dir:0, scored:0, n_all:0, points:0, quals:0, qf:0, ghost:0, streak:0, accuracy:0 };
+  // الإنجازات الممنوحة سابقاً: نتجنّب آلاف محاولات الإدراج الفارغة، ونمنح الجديد فقط (نفس النتيجة)
+  const have = new Set(db.prepare('SELECT employee_id, code FROM achievements').all().map(r => r.employee_id + '|' + r.code));
+  const give = (empId, code) => {
+    const key = empId + '|' + code;
+    if (have.has(key)) return;
+    const info = db.prepare('INSERT OR IGNORE INTO achievements(employee_id, code) VALUES(?,?)').run(empId, code);
+    if (info.changes) { granted.push({ employee_id: empId, code }); have.add(key); }
+  };
+
   for (const e of emps) {
-    const st = achStats(e.id);
-    if (st.n_all >= 1) grant(e.id, 'FIRST_PRED', granted);
-    if (st.n_all >= 5) grant(e.id, 'PART5', granted);
-    if (st.qf >= 4) grant(e.id, 'ALL_QF', granted);
-    if (st.exact >= 1) grant(e.id, 'PERFECT', granted);
-    if (st.exact >= 2) grant(e.id, 'SNIPER', granted);
-    if (st.exact >= 5) grant(e.id, 'SNIPER5', granted);
-    if (st.scored >= 4 && st.accuracy >= 70) grant(e.id, 'EXPERT', granted);
-    if (st.ghost >= 1) grant(e.id, 'GHOST_DRAW', granted);
-    if (st.streak >= 3) grant(e.id, 'STREAK3', granted);
-    if (st.streak >= 5) grant(e.id, 'STREAK5', granted);
-    if (st.points >= 10) grant(e.id, 'PTS10', granted);
-    if (st.points >= 25) grant(e.id, 'PTS25', granted);
-    if (st.points >= 50) grant(e.id, 'PTS50', granted);
-    if (st.quals >= 3) grant(e.id, 'QUAL3', granted);
+    const st = stats.get(e.id) || EMPTY;
+    if (st.n_all >= 1) give(e.id, 'FIRST_PRED');
+    if (st.n_all >= 5) give(e.id, 'PART5');
+    if (st.qf >= 4) give(e.id, 'ALL_QF');
+    if (st.exact >= 1) give(e.id, 'PERFECT');
+    if (st.exact >= 2) give(e.id, 'SNIPER');
+    if (st.exact >= 5) give(e.id, 'SNIPER5');
+    if (st.scored >= 4 && st.accuracy >= 70) give(e.id, 'EXPERT');
+    if (st.ghost >= 1) give(e.id, 'GHOST_DRAW');
+    if (st.streak >= 3) give(e.id, 'STREAK3');
+    if (st.streak >= 5) give(e.id, 'STREAK5');
+    if (st.points >= 10) give(e.id, 'PTS10');
+    if (st.points >= 25) give(e.id, 'PTS25');
+    if (st.points >= 50) give(e.id, 'PTS50');
+    if (st.quals >= 3) give(e.id, 'QUAL3');
     const was = prevRank.get(e.id);
-    if (was && was - (curRank.get(e.id) ?? was) >= 3) grant(e.id, 'COMEBACK', granted);
-    if (finalDone && e.champion_team === champ) grant(e.id, 'CHAMPION', granted);
+    if (was && was - (curRank.get(e.id) ?? was) >= 3) give(e.id, 'COMEBACK');
+    if (finalDone && e.champion_team === champ) give(e.id, 'CHAMPION');
   }
   if (finalDone) {
     const top = leaderboardTopId();
-    if (top) grant(top, 'LEGEND', granted);
+    if (top) give(top, 'LEGEND');
   }
   return granted;
+}
+
+/** إحصاءات إنجازات كل الموظفين دفعة واحدة — نفس مخرجات achStats بالضبط، بعدد ثابت من الاستعلامات. */
+function bulkStats() {
+  const m = new Map();
+  const g = (id) => {
+    let s = m.get(id);
+    if (!s) { s = { exact:0, dir:0, scored:0, n_all:0, points:0, quals:0, qf:0, ghost:0, streak:0, accuracy:0 }; m.set(id, s); }
+    return s;
+  };
+  for (const r of db.prepare(`
+    SELECT employee_id AS id,
+           COALESCE(SUM(is_exact),0) exact, COALESCE(SUM(is_direction),0) dir,
+           COUNT(points_total) scored, COUNT(*) n_all,
+           COALESCE(SUM(points_total),0) points,
+           COALESCE(SUM(CASE WHEN points_qual>0 THEN 1 ELSE 0 END),0) quals
+    FROM predictions GROUP BY employee_id`).all()) {
+    const s = g(r.id);
+    s.exact = r.exact; s.dir = r.dir; s.scored = r.scored; s.n_all = r.n_all; s.points = r.points; s.quals = r.quals;
+  }
+  for (const r of db.prepare(`SELECT p.employee_id AS id, COUNT(*) c
+                              FROM predictions p JOIN matches mm ON mm.id=p.match_id
+                              WHERE mm.stage='QF' GROUP BY p.employee_id`).all())
+    g(r.id).qf = r.c;
+  for (const r of db.prepare(`SELECT p.employee_id AS id, COUNT(*) c
+                              FROM predictions p JOIN matches mm ON mm.id=p.match_id
+                              WHERE p.is_exact=1 AND mm.home_score=mm.away_score AND mm.status='finished'
+                              GROUP BY p.employee_id`).all())
+    g(r.id).ghost = r.c;
+  // أطول متتالية (maxStreak) لكل موظف من تسلسل مرتّب واحد (نفس منطق maxStreak)
+  let curEmp = null, best = 0, cur = 0;
+  const flush = () => { if (curEmp !== null) g(curEmp).streak = best; };
+  for (const r of db.prepare(`
+    SELECT p.employee_id AS id, p.is_direction AS d
+    FROM predictions p JOIN matches mm ON mm.id=p.match_id
+    WHERE mm.status='finished' ORDER BY p.employee_id, mm.kickoff_utc`).all()) {
+    if (r.id !== curEmp) { flush(); curEmp = r.id; best = 0; cur = 0; }
+    cur = r.d ? cur + 1 : 0; if (cur > best) best = cur;
+  }
+  flush();
+  for (const s of m.values()) s.accuracy = s.scored ? Math.round((s.dir / s.scored) * 100) : 0;
+  return m;
 }
 
 /** حالة إنجازات موظف للواجهة: المفتوح بتاريخه + المقفول بتقدمه — الخفي المقفول لا يظهر. */
