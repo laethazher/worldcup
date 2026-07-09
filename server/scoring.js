@@ -31,21 +31,31 @@ export function scoreMatch(matchId) {
   const upd = db.prepare(`UPDATE predictions SET points_base=?, points_qual=?, points_total=?, is_exact=?, is_direction=? WHERE id=?`);
 
   const upd2 = db.prepare(`UPDATE predictions SET calc_multiplier=?, calc_reason=?, calc_breakdown=? WHERE id=?`);
+
+  // النقاط ٥ / ٢ / ٠ فقط — بلا نقاط «متأهل» منفصلة.
+  const matchIsDraw = m.home_score === m.away_score; // انتهت بالتعادل ⇒ حُسمت بركلات الترجيح
   for (const p of preds) {
-    const exact = p.home_score === m.home_score && p.away_score === m.away_score;
-    const actualSign = sign(m.home_score, m.away_score);
-    const outcomeOk = sign(p.home_score, p.away_score) === actualSign;
-    let base, kind;
-    // خيار أ: التعادل حالة واحدة ٥/٢/٠ — الاتجاه الصحيح (فائز أو تعادل) بلا بونص منفصل
-    if (exact) { base = R.exact; kind = 'توقع دقيق'; }
-    else if (outcomeOk) { base = R.winner; kind = actualSign === 0 ? 'تعادل صحيح' : 'فائز صحيح'; }
-    else { base = R.wrong; kind = 'توقع خاطئ'; }
-    const qual = (m.advancing_team && predictedAdvancer(p, m) === m.advancing_team) ? R.qualification : 0;
-    const total = base + qual;
-    const reason = kind + (qual ? ' + متأهل' : '');
-    upd.run(base, qual, total, exact ? 1 : 0, outcomeOk ? 1 : 0, p.id);
-    upd2.run(1, reason,
-      JSON.stringify({ kind, base, qual, total }), p.id);
+    let base, kind, isExact, isDir;
+
+    if (!matchIsDraw) {
+      // مباراة لها فائز: النتيجة بالضبط=٥ ، الفائز صح والنتيجة غلط=٢ ، غير ذلك=٠
+      const exactScore = p.home_score === m.home_score && p.away_score === m.away_score;
+      const winnerOk   = sign(p.home_score, p.away_score) === sign(m.home_score, m.away_score);
+      if (exactScore)    { base = R.exact;  kind = 'توقع دقيق'; isExact = 1; isDir = 1; }
+      else if (winnerOk) { base = R.winner; kind = 'فائز صحيح'; isExact = 0; isDir = 1; }
+      else               { base = R.wrong;  kind = 'توقع خاطئ'; isExact = 0; isDir = 0; }
+    } else {
+      // انتهت بالتعادل: عدد أهداف التعادل لا يفرق — المهم توقّع «تعادل» + الفائز بالركلات.
+      // تعادل + ترجيح صح=٥ (يُعتبر دقيق) ، تعادل + ترجيح غلط=٢ ، توقّع فوز=٠
+      const predictedDraw = p.home_score === p.away_score;
+      const penaltyOk = predictedDraw && !!p.penalty_winner && p.penalty_winner === m.advancing_team;
+      if (penaltyOk)          { base = R.exact;  kind = 'توقع دقيق (تعادل + الفائز بالركلات)'; isExact = 1; isDir = 1; }
+      else if (predictedDraw) { base = R.winner; kind = 'تعادل صحيح'; isExact = 0; isDir = 1; }
+      else                    { base = R.wrong;  kind = 'توقع خاطئ'; isExact = 0; isDir = 0; }
+    }
+
+    upd.run(base, 0, base, isExact, isDir, p.id);              // points_qual ثابت ٠ (لا مكافأة متأهل)
+    upd2.run(1, kind, JSON.stringify({ kind, base, total: base }), p.id);
   }
 }
 
