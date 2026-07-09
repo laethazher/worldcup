@@ -11,11 +11,12 @@
       <h1>مرحباً بك</h1>
       <p class="login-sub">المنصة الرسمية لتوقعات الموظفين — تحدي كأس العالم ٢٠٢٦</p>
       <form id="login-form" class="login-form">
-        <div class="field"><label for="u">اسم المستخدم</label><input id="u" class="input" autocomplete="username" required></div>
+        <div class="field"><label for="u">اسم المستخدم أو رقم الهاتف</label><input id="u" class="input" autocomplete="username" placeholder="username أو 07XXXXXXXXX" required></div>
         <div class="field"><label for="p">كلمة المرور</label><input id="p" class="input" type="password" autocomplete="current-password" required></div>
         <button id="go" class="btn btn-primary" type="submit">دخول</button>
       </form>
-      <p class="login-foot">توقّع النتائج · اجمع النقاط · نافس فرعك على الصدارة</p>
+      <p class="login-foot" style="margin-top:var(--s-4)">موظف جديد؟ <a href="/register.html" style="color:var(--crimson-text);font-weight:var(--fw-semibold);text-decoration:none">أنشئ حسابك من هنا</a></p>
+      <p class="login-foot" style="margin-top:var(--s-2)">توقّع النتائج · اجمع النقاط · نافس فرعك على الصدارة</p>
     </div>
   </div>
   <script type="module" src="/js/pages/login.js"></script>

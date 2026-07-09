@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="dark"><link rel="stylesheet" href="/css/tokens.css"><link rel="stylesheet" href="/css/base.css"><link rel="stylesheet" href="/css/components.css"><link rel="stylesheet" href="/css/pages.css"><link rel="icon" href="/favicon.ico" sizes="48x48"><link rel="icon" type="image/png" sizes="32x32" href="/assets/brand/favicon-32.png"><link rel="apple-touch-icon" href="/assets/brand/apple-touch-icon.png"><link rel="manifest" href="/site.webmanifest"><meta name="theme-color" content="#A51E2F"><link rel="preload" as="image" href="/assets/brand/logo.png"><script>try{if(sessionStorage.getItem("ahc-splash-shown"))document.documentElement.classList.add("no-splash")}catch(e){}</script>
+<style>
+  .register-card { width: min(520px, 100%); }
+  .login-form .helper-text { font-size: var(--text-xs); margin: 0; }
+  .req { color: var(--color-danger-text); }
+  .form-grid2 { display: grid; gap: var(--s-4); }
+  @media (min-width: 560px) { .form-grid2 { grid-template-columns: 1fr 1fr; } }
+  .login-alt a { color: var(--crimson-text); font-weight: var(--fw-semibold); text-decoration: none; }
+  .login-alt a:hover { text-decoration: underline; }
+</style>
+<title>إنشاء حساب — تحدي كأس العالم | الحسني هوم سنتر</title></head>
+<body>
+  <div class="splash" id="splash" role="status"><img class="splash-logo" src="/assets/brand/logo.png" alt="" width="1920" height="1103"><div class="splash-bar" aria-hidden="true"><i></i></div><span class="sr-only">جارٍ تشغيل تحدي كأس العالم — الحسني هوم سنتر</span></div>
+  <script type="module" src="/js/splash.js"></script>
+  <div class="login-arc"></div>
+  <div class="login-page">
+    <div class="card login-card register-card rise">
+      <img class="login-logo" src="/assets/brand/logo.png" alt="الحسني هوم سنتر" width="1920" height="1103">
+      <h1>إنشاء حساب جديد</h1>
+      <p class="login-sub">سجّل بنفسك خلال دقيقة وابدأ التوقع — تحدي كأس العالم ٢٠٢٦</p>
+
+      <form id="reg-form" class="login-form" novalidate>
+        <div class="field" id="f-name">
+          <label for="name">الاسم الكامل <span class="req">*</span></label>
+          <input id="name" class="input" autocomplete="name" placeholder="مثال: أحمد علي حسين" required>
+          <p class="helper-text" hidden></p>
+        </div>
+
+        <div class="field" id="f-phone">
+          <label for="phone">رقم الهاتف <span class="req">*</span></label>
+          <input id="phone" class="input" type="tel" inputmode="tel" dir="ltr" autocomplete="tel" placeholder="07XXXXXXXXX" required>
+          <p class="helper-text" hidden></p>
+        </div>
+
+        <div class="form-grid2">
+          <div class="field" id="f-branch">
+            <label for="branch">الفرع <span class="req">*</span></label>
+            <select id="branch" class="input" required><option value="">جارٍ التحميل…</option></select>
+            <p class="helper-text" hidden></p>
+          </div>
+          <div class="field" id="f-dept">
+            <label for="dept">القسم (اختياري)</label>
+            <select id="dept" class="input" disabled><option value="">اختر الفرع أولاً</option></select>
+            <p class="helper-text" hidden></p>
+          </div>
+        </div>
+
+        <div class="field" id="f-username">
+          <label for="username">اسم المستخدم <span class="req">*</span></label>
+          <input id="username" class="input" dir="ltr" autocomplete="username" placeholder="بالإنكليزية: ahmed.ali" required>
+          <p class="helper-text" hidden></p>
+        </div>
+
+        <div class="form-grid2">
+          <div class="field" id="f-pass">
+            <label for="pass">كلمة المرور <span class="req">*</span></label>
+            <input id="pass" class="input" type="password" autocomplete="new-password" placeholder="٨ أحرف على الأقل" required>
+            <p class="helper-text" hidden></p>
+          </div>
+          <div class="field" id="f-confirm">
+            <label for="confirm">تأكيد كلمة المرور <span class="req">*</span></label>
+            <input id="confirm" class="input" type="password" autocomplete="new-password" required>
+            <p class="helper-text" hidden></p>
+          </div>
+        </div>
+
+        <button id="go" class="btn btn-primary" type="submit">إنشاء الحساب</button>
+      </form>
+
+      <p class="login-foot login-alt">عندك حساب؟ <a href="/login.html">سجّل الدخول من هنا</a></p>
+    </div>
+  </div>
+  <script type="module" src="/js/pages/register.js"></script>
+</body>
+</html>
