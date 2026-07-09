@@ -50,23 +50,26 @@ function card(m: MatchView): HTMLElement {
     badges));
 
   const mid = el('div', { class: 'mc-mid' });
+  let cdBlock: HTMLElement | null = null;
   if (m.status === 'finished') {
     mid.append(el('div', { class: 'mc-score' }, `${m.home_score} - ${m.away_score}`));
     if (m.advancing_team && m.home_score === m.away_score) {
       mid.append(el('span', { class: 'chip gold' }, `تأهل بالترجيح: ${m.advancing_team === m.home_team ? m.home_name : m.away_name}`));
     }
-  } else if (!m.locked) {
-    const cd = el('div');
-    mid.append(cd);
-    stops.push(mountCountdown(cd, m.kickoff_utc, { compact: true, onDone: () => setTimeout(load, 1200) }));
   } else {
+    // بين الفريقين تبقى «VS» مرتّبة، والعدّاد ينزل لسطر خاص به تحت الفريقين
     mid.append(el('div', { class: 'mc-score', style: 'color:var(--warm)' }, 'VS'));
+    if (!m.locked) {
+      cdBlock = el('div');
+      stops.push(mountCountdown(cdBlock, m.kickoff_utc, { compact: true, onDone: () => setTimeout(load, 1200) }));
+    }
   }
 
   c.append(el('div', { class: 'mc-face' },
     el('div', { class: 'mc-team' }, flagEl(m.home_team), el('b', {}, m.home_name)),
     mid,
     el('div', { class: 'mc-team' }, flagEl(m.away_team), el('b', {}, m.away_name))));
+  if (cdBlock) c.append(cdBlock);
 
   c.append(el('div', { class: 'mc-time' }, `⏱ ${shortTime(m.kickoff_utc)} بتوقيت بغداد · ${m.stage_ar}`));
   if (!m.locked && m.status === 'scheduled') {
