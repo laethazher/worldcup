@@ -1,20 +1,14 @@
 import { get, post } from '../api.js';
 
-interface Dept { id: number; name: string }
-interface Branch { id: number; name: string; departments: Dept[] }
-interface Options { enabled: boolean; branches: Branch[] }
+interface Options { enabled: boolean; branch: string; titles: string[] }
 
 const form = document.getElementById('reg-form') as HTMLFormElement;
 const nameIn = document.getElementById('name') as HTMLInputElement;
 const phoneIn = document.getElementById('phone') as HTMLInputElement;
-const branchSel = document.getElementById('branch') as HTMLSelectElement;
-const deptSel = document.getElementById('dept') as HTMLSelectElement;
-const userIn = document.getElementById('username') as HTMLInputElement;
+const titleSel = document.getElementById('title') as HTMLSelectElement;
 const passIn = document.getElementById('pass') as HTMLInputElement;
 const confirmIn = document.getElementById('confirm') as HTMLInputElement;
 const btn = document.getElementById('go') as HTMLButtonElement;
-
-let branches: Branch[] = [];
 
 /* ─── أدوات ─── */
 const fieldOf = (el: HTMLElement): HTMLElement => el.closest('.field') as HTMLElement;
@@ -38,9 +32,8 @@ function normalizePhone(raw: string): string {
   else if (/^7\d{9}$/.test(p)) p = '0' + p;
   return p;
 }
-const USERNAME_RE = /^[a-zA-Z0-9._-]{3,32}$/;
 
-/* ─── تحميل الفروع/الأقسام ─── */
+/* ─── تحميل العناوين الوظيفية ─── */
 async function loadOptions(): Promise<void> {
   try {
     const o = await get<Options>('/api/register/options');
@@ -48,25 +41,10 @@ async function loadOptions(): Promise<void> {
       form.innerHTML = '<p class="login-sub" style="margin:0">التسجيل الذاتي متوقف حالياً — راجع الإدارة لإنشاء حسابك.</p>';
       return;
     }
-    branches = o.branches;
-    branchSel.innerHTML = '<option value="">— اختر فرعك —</option>' +
-      branches.map((b) => `<option value="${b.id}">${b.name}</option>`).join('');
+    titleSel.innerHTML = '<option value="">— اختر عنوانك الوظيفي —</option>' +
+      o.titles.map((t) => `<option value="${t}">${t}</option>`).join('');
   } catch {
-    branchSel.innerHTML = '<option value="">تعذّر التحميل — حدّث الصفحة</option>';
-  }
-}
-
-function onBranchChange(): void {
-  setErr(branchSel, null);
-  const b = branches.find((x) => String(x.id) === branchSel.value);
-  if (!b) { deptSel.disabled = true; deptSel.innerHTML = '<option value="">اختر الفرع أولاً</option>'; return; }
-  if (!b.departments.length) {
-    deptSel.disabled = true;
-    deptSel.innerHTML = '<option value="">لا توجد أقسام لهذا الفرع</option>';
-  } else {
-    deptSel.disabled = false;
-    deptSel.innerHTML = '<option value="">بدون قسم</option>' +
-      b.departments.map((d) => `<option value="${d.id}">${d.name}</option>`).join('');
+    titleSel.innerHTML = '<option value="">تعذّر التحميل — حدّث الصفحة</option>';
   }
 }
 
@@ -75,7 +53,7 @@ function validate(): boolean {
   let ok = true;
   const name = nameIn.value.replace(/\s+/g, ' ').trim();
   if (!name) { setErr(nameIn, 'الاسم الكامل مطلوب'); ok = false; }
-  else if (name.length < 5 || !name.includes(' ')) { setErr(nameIn, 'اكتب اسمك الثنائي على الأقل (الاسم واللقب)'); ok = false; }
+  else if (name.split(' ').length < 3) { setErr(nameIn, 'اكتب اسمك الثلاثي (الاسم واسم الأب واللقب)'); ok = false; }
   else setErr(nameIn, null);
 
   const phone = normalizePhone(phoneIn.value);
@@ -83,13 +61,8 @@ function validate(): boolean {
   else if (!/^07\d{9}$/.test(phone)) { setErr(phoneIn, 'الصيغة المطلوبة: 07XXXXXXXXX (١١ رقماً)'); ok = false; }
   else setErr(phoneIn, null);
 
-  if (!branchSel.value) { setErr(branchSel, 'اختر فرعك من القائمة'); ok = false; }
-  else setErr(branchSel, null);
-
-  const u = userIn.value.trim();
-  if (!u) { setErr(userIn, 'اسم المستخدم مطلوب'); ok = false; }
-  else if (!USERNAME_RE.test(u)) { setErr(userIn, '3–32 حرفاً إنكليزياً أو أرقاماً أو . _ -'); ok = false; }
-  else setErr(userIn, null);
+  if (!titleSel.value) { setErr(titleSel, 'اختر عنوانك الوظيفي'); ok = false; }
+  else setErr(titleSel, null);
 
   if (!passIn.value) { setErr(passIn, 'كلمة المرور مطلوبة'); ok = false; }
   else if (passIn.value.length < 8 || !/[A-Za-z\u0621-\u064A]/.test(passIn.value)) {
@@ -103,14 +76,12 @@ function validate(): boolean {
   return ok;
 }
 
-/* توجيه رسالة السيرفر إلى حقلها (اليوزر/الهاتف/الاسم) لتجربة أوضح */
+/* توجيه رسالة السيرفر إلى حقلها لتجربة أوضح */
 function routeServerError(msg: string): void {
-  if (/اسم المستخدم/.test(msg)) { setErr(userIn, msg); userIn.focus(); }
+  if (/عنوان/.test(msg)) { setErr(titleSel, msg); }
   else if (/الهاتف/.test(msg)) { setErr(phoneIn, msg); phoneIn.focus(); }
-  else if (/الاسم/.test(msg)) { setErr(nameIn, msg); nameIn.focus(); }
   else if (/كلمة المرور/.test(msg)) { setErr(passIn, msg); passIn.focus(); }
-  else if (/فرع/.test(msg)) setErr(branchSel, msg);
-  else if (/قسم/.test(msg)) setErr(deptSel, msg);
+  else if (/الاسم|اسمك/.test(msg)) { setErr(nameIn, msg); nameIn.focus(); }
 }
 
 async function submit(e: Event): Promise<void> {
@@ -122,11 +93,9 @@ async function submit(e: Event): Promise<void> {
     const r = await post<{ ok: boolean; user: { name: string } }>('/api/register', {
       name: nameIn.value.replace(/\s+/g, ' ').trim(),
       phone: normalizePhone(phoneIn.value),
-      username: userIn.value.trim(),
+      title: titleSel.value,
       password: passIn.value,
       confirm: confirmIn.value,
-      branch_id: Number(branchSel.value),
-      department_id: deptSel.value ? Number(deptSel.value) : null,
     });
     try { sessionStorage.setItem('ahc-welcome', r.user.name); } catch { /* noop */ }
     location.href = '/index.html';
@@ -138,9 +107,9 @@ async function submit(e: Event): Promise<void> {
 }
 
 /* مسح خطأ الحقل عند التعديل */
-for (const el of [nameIn, phoneIn, userIn, passIn, confirmIn]) {
+for (const el of [nameIn, phoneIn, passIn, confirmIn]) {
   el.addEventListener('input', () => setErr(el, null));
 }
-branchSel.addEventListener('change', onBranchChange);
+titleSel.addEventListener('change', () => setErr(titleSel, null));
 form.addEventListener('submit', submit);
 void loadOptions();

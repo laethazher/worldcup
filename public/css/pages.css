@@ -261,3 +261,8 @@
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--gold) 30%, transparent), var(--shadow-2);
   background: linear-gradient(180deg, color-mix(in srgb, var(--gold) 7%, transparent), transparent 55%), var(--card-bg); }
 @media (min-width: 769px) { .champ-gold { transform: translateY(-8px) scale(1.03); } }
+
+/* ═══ إصلاح بطاقات المباريات على الشاشات العريضة: عرض مضبوط بدل التمدد ═══ */
+@media (min-width: 900px) {
+  .match-grid { grid-template-columns: repeat(auto-fill, minmax(340px, 400px)); justify-content: center; }
+}

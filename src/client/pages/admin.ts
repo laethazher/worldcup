@@ -217,7 +217,6 @@ async function tabSettings(body: HTMLElement): Promise<void> {
   const F = {
     exact: num(c.exact), winner: num(c.winner), draw: num(c.draw), wrong: num(c.wrong),
     qualification: num(c.qualification), champion_bonus: num(c.champion_bonus),
-    joker_multiplier: num(c.joker_multiplier, 1, 10),
   };
   const STAGES: [string, string][] = [['R16', 'دور الـ16'], ['QF', 'ربع النهائي'], ['SF', 'نصف النهائي'], ['THIRD', 'البرونزية'], ['FINAL', 'النهائي']];
   const M: Record<string, HTMLInputElement> = {};
@@ -233,8 +232,7 @@ async function tabSettings(body: HTMLElement): Promise<void> {
     el('div', { class: 'grid', style: 'grid-template-columns:repeat(auto-fit,minmax(150px,1fr))' },
       fld('النتيجة الدقيقة', F.exact), fld('الفائز الصحيح', F.winner),
       fld('التعادل الصحيح', F.draw), fld('التوقع الخاطئ', F.wrong),
-      fld('توقع المتأهل', F.qualification), fld('مكافأة البطل', F.champion_bonus),
-      fld('مضاعف الجوكر', F.joker_multiplier, '×1–10')),
+      fld('توقع المتأهل', F.qualification), fld('مكافأة البطل', F.champion_bonus)),
     el('div', { class: 'hr' }),
     el('h4', { class: 't-sm', style: 'margin-bottom:var(--s-3)' }, 'مضاعفات المراحل'),
     el('div', { class: 'grid', style: 'grid-template-columns:repeat(auto-fit,minmax(120px,1fr))' },

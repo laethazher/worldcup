@@ -1,5 +1,5 @@
 import { el, openModal, toast } from './ui.js';
-import { get, post } from './api.js';
+import { post } from './api.js';
 import { flagEl } from './flags.js';
 import { kickoffLabel } from './format.js';
 
@@ -9,7 +9,7 @@ export interface MatchView {
   home_name: string; away_name: string; teams_set: boolean;
   kickoff_utc: string; multiplier: number; status: string; locked: boolean;
   home_score: number | null; away_score: number | null; advancing_team: string | null;
-  my_prediction: null | { home_score: number; away_score: number; penalty_winner: string | null; joker: boolean;
+  my_prediction: null | { home_score: number; away_score: number; penalty_winner: string | null;
     points_total: number | null; points_base: number | null; points_qual: number | null; is_exact: number | null; is_direction: number | null; };
   stats?: { total: number; home: number; draw: number; away: number; top_scores: { s: string; c: number }[] };
 }
@@ -33,8 +33,6 @@ function stepper(initial: number, onChange: (v: number) => void): { root: HTMLEl
 }
 
 export async function openPrediction(m: MatchView, onSaved: (m: MatchView) => void): Promise<void> {
-  const joker = await get<{ used_on: number | null; consumed: boolean }>('/api/joker');
-
   let penWinner: string | null = m.my_prediction?.penalty_winner ?? null;
   const penWrap = el('div', { class: 'field', style: 'display:none' },
     el('label', {}, 'تعادل — من يتأهل بركلات الترجيح؟'));
@@ -58,20 +56,6 @@ export async function openPrediction(m: MatchView, onSaved: (m: MatchView) => vo
   const home = stepper(m.my_prediction?.home_score ?? 0, syncPen);
   const away = stepper(m.my_prediction?.away_score ?? 0, syncPen);
 
-  const jokerLockedElsewhere = joker.used_on !== null && joker.used_on !== m.id && joker.consumed;
-  const jokerInput = el('input', { type: 'checkbox' }) as HTMLInputElement;
-  jokerInput.checked = !!m.my_prediction?.joker;
-  if (jokerLockedElsewhere) jokerInput.disabled = true;
-
-  const jokerRow = el('div', { class: 'joker-row' },
-    el('div', {},
-      el('b', { style: 'display:block;font-size:var(--text-sm)' }, '🃏 كارت الجوكر — نقاط مضاعفة ×٢'),
-      el('small', { style: 'color:var(--muted);font-size:var(--text-xs)' },
-        jokerLockedElsewhere ? 'استخدمته في مباراة سابقة'
-          : joker.used_on !== null && joker.used_on !== m.id ? 'محجوز على مباراة أخرى — تفعيله هنا ينقله'
-          : 'مرة واحدة في البطولة، اختر لحظتك')),
-    el('label', { class: 'switch' }, jokerInput, el('i')));
-
   const save = el('button', { class: 'btn btn-primary', style: 'width:100%' }, 'تأكيد التوقع') as HTMLButtonElement;
 
   const content = el('div', {},
@@ -83,8 +67,6 @@ export async function openPrediction(m: MatchView, onSaved: (m: MatchView) => vo
       el('div', { class: 'pm-colon' }, ':'),
       el('div', { class: 'pm-team' }, flagEl(m.away_team), el('b', {}, m.away_name), away.root)),
     penWrap,
-    el('div', { class: 'hr' }),
-    jokerRow,
     el('div', { style: 'margin-top:18px' }, save),
     el('p', { style: 'text-align:center;color:var(--muted);font-size:var(--text-xs);margin-top:10px' },
       'تكدر تعدّل توقعك حتى صافرة البداية — بعدها يُقفل نهائياً'));
@@ -99,7 +81,6 @@ export async function openPrediction(m: MatchView, onSaved: (m: MatchView) => vo
       const res = await post<{ ok: boolean; match: MatchView }>(`/api/matches/${m.id}/prediction`, {
         home_score: home.get(), away_score: away.get(),
         penalty_winner: home.get() === away.get() ? penWinner : null,
-        joker: jokerInput.checked,
       });
       toast('تم حفظ توقعك ✓', 'ok');
       close();
@@ -122,6 +103,5 @@ export function myPredictionChip(m: MatchView): HTMLElement | null {
     el('span', {}, 'توقعك'),
     el('b', { class: 'num', style: 'direction:ltr' }, `${p.home_score} - ${p.away_score}`),
     p.penalty_winner ? el('span', { class: 'chip', style: 'font-size:.7rem' }, 'ترجيح') : null,
-    p.joker ? el('span', {}, '🃏') : null,
     note ? el('span', { style: 'font-weight:700' }, note) : null);
 }

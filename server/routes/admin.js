@@ -100,7 +100,7 @@ r.get('/matches/:id/scoring', (req, res) => {
   const m = db.prepare('SELECT id, round_no, stage_ar, status, home_score, away_score, multiplier FROM matches WHERE id=?').get(req.params.id);
   if (!m) return res.status(404).json({ error: 'المباراة غير موجودة' });
   const rows = db.prepare(`
-    SELECT e.name, e.username, p.home_score, p.away_score, p.penalty_winner, p.joker,
+    SELECT e.name, e.username, p.home_score, p.away_score, p.penalty_winner,
            p.points_total, p.calc_reason, p.calc_multiplier, p.calc_breakdown
     FROM predictions p JOIN employees e ON e.id = p.employee_id
     WHERE p.match_id = ? ORDER BY p.points_total DESC, e.name`).all(m.id);
@@ -538,7 +538,7 @@ r.get('/export/predictions.csv', (req, res) => {
   const rows = db.prepare(`
     SELECT e.name emp, b.name branch, m.round_no, m.stage_ar,
            th.name_ar home, ta.name_ar away,
-           p.home_score, p.away_score, p.penalty_winner, p.joker, p.points_total, p.calc_reason, p.calc_multiplier, p.created_at
+           p.home_score, p.away_score, p.penalty_winner, p.points_total, p.calc_reason, p.calc_multiplier, p.created_at
     FROM predictions p
     JOIN employees e ON e.id=p.employee_id
     LEFT JOIN branches b ON b.id=e.branch_id
@@ -548,8 +548,8 @@ r.get('/export/predictions.csv', (req, res) => {
     ORDER BY m.kickoff_utc, e.name`).all();
   audit(req, 'EXPORT', 'predictions');
   csvResponse(res, 'توقعات-الموظفين.csv',
-    ['الموظف', 'الفرع', 'رقم المباراة', 'المرحلة', 'المضيف', 'الضيف', 'توقع المضيف', 'توقع الضيف', 'المتأهل بالترجيح', 'جوكر', 'النقاط', 'سبب الاحتساب', 'المضاعف', 'وقت التوقع'],
-    rows.map(x => [x.emp, x.branch || '', x.round_no, x.stage_ar, x.home, x.away, x.home_score, x.away_score, x.penalty_winner || '', x.joker ? 'نعم' : '', x.points_total ?? '', x.calc_reason ?? '', x.calc_multiplier ?? '', x.created_at]));
+    ['الموظف', 'الفرع', 'رقم المباراة', 'المرحلة', 'المضيف', 'الضيف', 'توقع المضيف', 'توقع الضيف', 'المتأهل بالترجيح', 'النقاط', 'سبب الاحتساب', 'المضاعف', 'وقت التوقع'],
+    rows.map(x => [x.emp, x.branch || '', x.round_no, x.stage_ar, x.home, x.away, x.home_score, x.away_score, x.penalty_winner || '', x.points_total ?? '', x.calc_reason ?? '', x.calc_multiplier ?? '', x.created_at]));
 });
 
 // ---------------------------------------------------------------- notifications, audit, analytics
@@ -777,10 +777,6 @@ r.post('/scoring-config', (req, res) => {
     if (!intIn(b[k], 0, 99)) return res.status(400).json({ error: `قيمة «${k}» غير صحيحة — عدد صحيح 0–99` });
     next[k] = Number(b[k]);
   }
-  if (b.joker_multiplier !== undefined) {
-    if (!intIn(b.joker_multiplier, 1, 10)) return res.status(400).json({ error: 'مضاعف الجوكر: عدد صحيح 1–10' });
-    next.joker_multiplier = Number(b.joker_multiplier);
-  }
   const changedStages = [];
   if (b.stage_multipliers) {
     next.stage_multipliers = { ...cur.stage_multipliers };
@@ -796,7 +792,7 @@ r.post('/scoring-config', (req, res) => {
   }
 
   const LABELS = { exact: 'الدقيقة', winner: 'الفائز', draw: 'التعادل', wrong: 'الخاطئ',
-    qualification: 'المتأهل', champion_bonus: 'مكافأة البطل', joker_multiplier: 'مضاعف الجوكر' };
+    qualification: 'المتأهل', champion_bonus: 'مكافأة البطل' };
   const diffs = [];
   for (const k of Object.keys(LABELS)) {
     if (next[k] !== cur[k]) diffs.push(`${LABELS[k]}: «${cur[k]}» ← «${next[k]}»`);

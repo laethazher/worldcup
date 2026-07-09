@@ -35,7 +35,7 @@ async function load(): Promise<void> {
       kv('تاريخ الإنشاء', el('span', { class: 'num' }, dateTimeFull(p.created_at))),
       kv('آخر تسجيل دخول', el('span', { class: 'num' }, p.last_login_at ? dateTimeFull(p.last_login_at) : '—')),
       kv('عدد مرات الدخول', el('span', { class: 'num' }, nf.format(p.login_count))),
-      kv('الفرع والقسم', [p.branch, p.department].filter(Boolean).join(' · ') || '—'))));
+      kv('الفرع والعنوان الوظيفي', [p.branch, p.department].filter(Boolean).join(' · ') || '—'))));
 
   // ─── تغيير كلمة المرور ───
   const c0 = pwInput(); const n1 = pwInput(); const n2 = pwInput();

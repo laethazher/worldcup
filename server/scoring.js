@@ -14,7 +14,6 @@ export function scoringConfig() {
     wrong: raw.wrong ?? 0,
     qualification: raw.qualification ?? 2,
     champion_bonus: raw.champion_bonus ?? 10,
-    joker_multiplier: raw.joker_multiplier ?? 2,
     stage_multipliers: { ...DEFAULT_STAGE_MULT, ...(raw.stage_multipliers || {}) },
   };
 }
@@ -47,15 +46,13 @@ export function scoreMatch(matchId) {
     else if (outcomeOk) { base = R.winner; kind = 'فائز صحيح'; }
     else { base = R.wrong; kind = 'توقع خاطئ'; }
     const qual = (m.advancing_team && predictedAdvancer(p, m) === m.advancing_team) ? R.qualification : 0;
-    const jokerMult = p.joker ? R.joker_multiplier : 1;
-    const total = (base + qual) * m.multiplier * jokerMult;
+    const total = (base + qual) * m.multiplier;
     const reason = kind
       + (qual ? ' + متأهل' : '')
-      + (m.multiplier !== 1 ? ` ×${m.multiplier} (${m.stage_ar || m.stage})` : '')
-      + (p.joker ? ` ×${R.joker_multiplier} جوكر` : '');
+      + (m.multiplier !== 1 ? ` ×${m.multiplier} (${m.stage_ar || m.stage})` : '');
     upd.run(base, qual, total, exact ? 1 : 0, outcomeOk ? 1 : 0, p.id);
     upd2.run(m.multiplier, reason,
-      JSON.stringify({ kind, base, qual, stage_mult: m.multiplier, joker_mult: jokerMult, total }), p.id);
+      JSON.stringify({ kind, base, qual, stage_mult: m.multiplier, total }), p.id);
   }
 }
 
@@ -180,7 +177,6 @@ const AWARDS = {
   PERFECT:    { name: 'توقع مثالي',     desc: 'نتيجة دقيقة ١٠٠٪',                icon: '🎯', category: 'prediction',    rarity: 'rare',      metric: 'exact', target: 1 },
   SNIPER:     { name: 'القنّاص',        desc: 'نتيجتان دقيقتان أو أكثر',          icon: '🏹', category: 'prediction',    rarity: 'epic',      metric: 'exact', target: 2 },
   SNIPER5:    { name: 'عين الصقر',      desc: '٥ نتائج دقيقة في البطولة',         icon: '💥', category: 'prediction',    rarity: 'legendary', metric: 'exact', target: 5 },
-  JOKER_HIT:  { name: 'ضربة الجوكر',    desc: 'الجوكر على نتيجة دقيقة',           icon: '🃏', category: 'prediction',    rarity: 'epic' },
   GHOST_DRAW: { name: 'شبح التعادل',    desc: 'توقع دقيق لمباراة انتهت بالتعادل', icon: '👻', category: 'prediction',    rarity: 'rare',      hidden: true },
   // سلاسل
   STREAK3:    { name: 'سلسلة ساخنة',    desc: '٣ توقعات صحيحة متتالية',           icon: '🔥', category: 'streak',        rarity: 'rare',      metric: 'streak', target: 3 },
@@ -223,7 +219,6 @@ export function achStats(empId) {
            COUNT(points_total) scored,
            COUNT(*) n_all,
            COALESCE(SUM(points_total),0) points,
-           COALESCE(SUM(CASE WHEN joker=1 AND is_exact=1 THEN 1 ELSE 0 END),0) jhit,
            COALESCE(SUM(CASE WHEN points_qual>0 THEN 1 ELSE 0 END),0) quals
     FROM predictions WHERE employee_id=?`).get(empId);
   s.qf = db.prepare(`SELECT COUNT(*) c FROM predictions p JOIN matches m ON m.id=p.match_id
@@ -260,7 +255,6 @@ export function computeAchievements() {
     if (st.exact >= 2) grant(e.id, 'SNIPER', granted);
     if (st.exact >= 5) grant(e.id, 'SNIPER5', granted);
     if (st.scored >= 4 && st.accuracy >= 70) grant(e.id, 'EXPERT', granted);
-    if (st.jhit >= 1) grant(e.id, 'JOKER_HIT', granted);
     if (st.ghost >= 1) grant(e.id, 'GHOST_DRAW', granted);
     if (st.streak >= 3) grant(e.id, 'STREAK3', granted);
     if (st.streak >= 5) grant(e.id, 'STREAK5', granted);

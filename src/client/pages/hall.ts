@@ -42,7 +42,7 @@ async function render(): Promise<void> {
       : el('span', { class: 'chip gold num' }, `تُوّج ${dateTimeFull(h.completed_at)}`),
     el('div', { class: 'u-center u-gap-3 u-wrap', style: 'margin-top:var(--s-3)' },
       h.winning_branch ? el('span', { class: 'chip crimson' }, `🏬 الفرع الفائز: ${h.winning_branch}`) : null,
-      h.winning_department ? el('span', { class: 'chip crimson' }, `🗂 القسم الفائز: ${h.winning_department}`) : null)));
+      h.winning_department ? el('span', { class: 'chip crimson' }, `🗂 العنوان الوظيفي الفائز: ${h.winning_department}`) : null)));
 
   const winners: [string, string, string | null, string | null, string | null, number | null, number | null, number | null, string[]][] = [
     ['🏆', 'بطل التحدي', h.champion_name, h.champion_branch, h.champion_department, h.champion_points, h.champion_accuracy, h.champion_exact, h.champion_achievements],

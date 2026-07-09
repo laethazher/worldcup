@@ -19,11 +19,11 @@
     <div class="card login-card register-card rise">
       <img class="login-logo" src="/assets/brand/logo.png" alt="الحسني هوم سنتر" width="1920" height="1103">
       <h1>إنشاء حساب جديد</h1>
-      <p class="login-sub">سجّل بنفسك خلال دقيقة وابدأ التوقع — تحدي كأس العالم ٢٠٢٦</p>
+      <p class="login-sub">سجّل باسمك الثلاثي ورقم هاتفك — وتدخل بيهم مباشرة</p>
 
       <form id="reg-form" class="login-form" novalidate>
         <div class="field" id="f-name">
-          <label for="name">الاسم الكامل <span class="req">*</span></label>
+          <label for="name">الاسم الكامل (الثلاثي) <span class="req">*</span></label>
           <input id="name" class="input" autocomplete="name" placeholder="مثال: أحمد علي حسين" required>
           <p class="helper-text" hidden></p>
         </div>
@@ -36,21 +36,15 @@
 
         <div class="form-grid2">
           <div class="field" id="f-branch">
-            <label for="branch">الفرع <span class="req">*</span></label>
-            <select id="branch" class="input" required><option value="">جارٍ التحميل…</option></select>
+            <label for="branch">الفرع</label>
+            <input id="branch" class="input" value="المخازن المركزية" disabled>
+            <p class="helper-text" style="display:block">ثابت حالياً — يغيّره المسؤول فقط</p>
+          </div>
+          <div class="field" id="f-title">
+            <label for="title">العنوان الوظيفي <span class="req">*</span></label>
+            <select id="title" class="input" required><option value="">جارٍ التحميل…</option></select>
             <p class="helper-text" hidden></p>
           </div>
-          <div class="field" id="f-dept">
-            <label for="dept">القسم (اختياري)</label>
-            <select id="dept" class="input" disabled><option value="">اختر الفرع أولاً</option></select>
-            <p class="helper-text" hidden></p>
-          </div>
-        </div>
-
-        <div class="field" id="f-username">
-          <label for="username">اسم المستخدم <span class="req">*</span></label>
-          <input id="username" class="input" dir="ltr" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="بالإنكليزية: ahmed.ali" required>
-          <p class="helper-text" hidden></p>
         </div>
 
         <div class="form-grid2">

@@ -27,7 +27,7 @@ function matchView(m, userId) {
     home_score: m.home_score, away_score: m.away_score, advancing_team: m.advancing_team,
     my_prediction: pred ? {
       home_score: pred.home_score, away_score: pred.away_score,
-      penalty_winner: pred.penalty_winner, joker: !!pred.joker,
+      penalty_winner: pred.penalty_winner,
       points_total: pred.points_total, points_base: pred.points_base, points_qual: pred.points_qual,
       is_exact: pred.is_exact, is_direction: pred.is_direction,
     } : null,
@@ -55,7 +55,7 @@ r.post('/matches/:id/prediction', (req, res) => {
   if (isLocked(m)) return res.status(423).json({ error: 'أُغلق التوقع — بدأت المباراة' });
   if (!m.home_team || !m.away_team) return res.status(400).json({ error: 'التوقع يُفتح بعد تحديد الفريقين' });
 
-  let { home_score, away_score, penalty_winner = null, joker = false } = req.body || {};
+  let { home_score, away_score, penalty_winner = null } = req.body || {};
   home_score = Number(home_score); away_score = Number(away_score);
   const validScore = (n) => Number.isInteger(n) && n >= 0 && n <= 15;
   if (!validScore(home_score) || !validScore(away_score)) {
@@ -67,35 +67,17 @@ r.post('/matches/:id/prediction', (req, res) => {
     }
   } else penalty_winner = null;
 
-  joker = joker ? 1 : 0;
-  if (joker) {
-    const burned = db.prepare(`
-      SELECT 1 FROM predictions p JOIN matches mm ON mm.id = p.match_id
-      WHERE p.employee_id=? AND p.joker=1 AND p.match_id != ? AND mm.kickoff_utc <= ?
-      LIMIT 1`).get(req.user.id, m.id, nowISO());
-    if (burned) return res.status(400).json({ error: 'استخدمت الجوكر في مباراة سابقة' });
-    // free the joker from any other open match
-    db.prepare(`UPDATE predictions SET joker=0 WHERE employee_id=? AND match_id!=? AND joker=1`).run(req.user.id, m.id);
-  }
-
   db.prepare(`
-    INSERT INTO predictions(employee_id, match_id, home_score, away_score, penalty_winner, joker)
-    VALUES(?,?,?,?,?,?)
+    INSERT INTO predictions(employee_id, match_id, home_score, away_score, penalty_winner)
+    VALUES(?,?,?,?,?)
     ON CONFLICT(employee_id, match_id) DO UPDATE SET
       home_score=excluded.home_score, away_score=excluded.away_score,
-      penalty_winner=excluded.penalty_winner, joker=excluded.joker,
+      penalty_winner=excluded.penalty_winner,
       updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')`)
-    .run(req.user.id, m.id, home_score, away_score, penalty_winner, joker);
+    .run(req.user.id, m.id, home_score, away_score, penalty_winner);
 
-  audit(req, 'PREDICTION_SAVED', 'match', m.id, `${home_score}-${away_score}${penalty_winner ? ' pen:' + penalty_winner : ''}${joker ? ' joker' : ''}`);
+  audit(req, 'PREDICTION_SAVED', 'match', m.id, `${home_score}-${away_score}${penalty_winner ? ' pen:' + penalty_winner : ''}`);
   res.json({ ok: true, match: matchView(db.prepare('SELECT * FROM matches WHERE id=?').get(m.id), req.user.id) });
-});
-
-r.get('/joker', (req, res) => {
-  const j = db.prepare(`
-    SELECT p.match_id, mm.kickoff_utc FROM predictions p JOIN matches mm ON mm.id=p.match_id
-    WHERE p.employee_id=? AND p.joker=1`).get(req.user.id);
-  res.json({ used_on: j?.match_id ?? null, consumed: j ? new Date(j.kickoff_utc) <= new Date() : false });
 });
 
 r.post('/champion', (req, res) => {

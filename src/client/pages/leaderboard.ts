@@ -30,7 +30,7 @@ async function load(): Promise<void> {
     el('div', { class: 'tabs' },
       tabBtn('الموظفون', 'emp'),
       tabBtn('الفروع', 'branch'),
-      tabBtn('الأقسام', 'dept'),
+      tabBtn('العناوين الوظيفية', 'dept'),
       tabBtn('الإدارة', 'admins'))));
 
   if (tab === 'emp') await renderEmployees();
@@ -198,7 +198,7 @@ function boardToolbar(all: Row[]): HTMLElement {
   return el('div', { class: 'card card-compact users-toolbar rise-3', style: 'margin-bottom:var(--s-3)' },
     search,
     sel([['', 'كل الفروع'], ...branches.map(b => [b, b] as [string, string])], view.branch, v => view.branch = v),
-    sel([['', 'كل الأقسام'], ...depts.map(d => [d, d] as [string, string])], view.dept, v => view.dept = v),
+    sel([['', 'كل العناوين الوظيفية'], ...depts.map(d => [d, d] as [string, string])], view.dept, v => view.dept = v),
     sel([['rank', 'فرز: الترتيب'], ['points', 'فرز: النقاط'], ['exact', 'فرز: الدقيقة'], ['accuracy', 'فرز: الدقة'], ['name', 'فرز: الاسم']], view.sort, v => view.sort = v));
 }
 
