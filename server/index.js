@@ -43,7 +43,10 @@ app.use(express.static(path.join(__dirname, '..', 'public'), {
   extensions: ['html'],
   maxAge: '1h',
   setHeaders(res, filePath) {
-    if (filePath.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache');
+    // html + js + css بلا تخزين: أي تحديث ننشره يظهر فوراً للجميع (الخطوط وحدها تبقى مخزّنة)
+    if (filePath.endsWith('.html') || filePath.endsWith('.js') || filePath.endsWith('.css')) {
+      res.setHeader('Cache-Control', 'no-cache');
+    }
     if (filePath.includes('/fonts/')) res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
   },
 }));

@@ -103,7 +103,59 @@ function resultCard(m: MatchView, teams: { code: string; name_ar: string }[]): H
   c.append(el('div', { class: 'result-row' },
     face,
     el('div', { class: 'score-inline' }, h, el('b', {}, ':'), a, adv, saveBtn)));
+  c.append(el('div', {},
+    el('button', { class: 'btn btn-ghost btn-sm', onclick: () => showPredictions(m) }, '👁 توقعات الموظفين')));
   return c;
+}
+
+/* ═══ عرض كل توقعات الموظفين لمباراة (مع بحث ونقاط وسبب الاحتساب) ═══ */
+interface PredRow {
+  name: string; username: string;
+  home_score: number; away_score: number; penalty_winner: string | null;
+  points_total: number | null; calc_reason: string | null; calc_multiplier: number | null;
+}
+async function showPredictions(m: MatchView): Promise<void> {
+  const d = await get<{ match: any; rows: PredRow[] }>(`/api/admin/matches/${m.id}/scoring`);
+  const rows = d.rows;
+
+  const search = el('input', { class: 'input', placeholder: '🔍 بحث باسم الموظف', style: 'margin:var(--s-3) 0' }) as HTMLInputElement;
+  const host = el('div', { class: 'table-wrap', style: 'max-height:56vh;overflow:auto' });
+
+  const penName = (code: string | null) =>
+    !code ? '—' : code === m.home_team ? m.home_name : code === m.away_team ? m.away_name : code;
+
+  const render = () => {
+    const q = search.value.replace(/\s+/g, ' ').trim();
+    const f = q ? rows.filter(r => (r.name || '').includes(q)) : rows;
+    host.innerHTML = '';
+    if (!f.length) {
+      host.append(el('p', { class: 't-sm t-muted', style: 'padding:var(--s-4);text-align:center' },
+        rows.length ? 'لا نتائج مطابقة للبحث' : 'لا توجد توقعات مسجّلة لهذه المباراة بعد'));
+      return;
+    }
+    host.append(el('table', {},
+      el('thead', {}, el('tr', {}, ...['#', 'الموظف', 'التوقع', 'الترجيح', 'النقاط', 'الاحتساب'].map(x => el('th', {}, x)))),
+      el('tbody', {}, ...f.map((r, i) => el('tr', {},
+        el('td', { class: 'num' }, nf.format(i + 1)),
+        el('td', {}, el('b', {}, r.name)),
+        el('td', { class: 'num', style: 'direction:ltr;font-weight:700' }, `${r.home_score} - ${r.away_score}`),
+        el('td', {}, penName(r.penalty_winner)),
+        el('td', { class: 'num' }, r.points_total === null ? '—' : nf.format(r.points_total)),
+        el('td', { style: 'font-size:var(--text-xs);color:var(--muted)' }, r.calc_reason || 'لم تُحتسب بعد'))))));
+  };
+  search.oninput = render;
+  render();
+
+  const content = el('div', {},
+    el('h2', { style: 'font-size:var(--text-lg)' }, `توقعات الموظفين — ${m.home_name} × ${m.away_name}`),
+    el('div', { class: 'u-flex u-gap-2 u-wrap', style: 'margin-top:6px' },
+      el('span', { class: 'chip' }, `مباراة ${nf.format(m.round_no)} · ${m.stage_ar}`),
+      el('span', { class: 'chip crimson' }, `${nf.format(rows.length)} توقع`),
+      m.status === 'finished' ? el('span', { class: 'chip ok' }, `النتيجة ${m.home_score} - ${m.away_score}`) : null),
+    search, host);
+  openModal(content);
+  const box = content.parentElement as HTMLElement | null;
+  if (box) box.style.width = 'min(760px, 94vw)';
 }
 
 function teamSelect(teams: { code: string; name_ar: string }[], val: string | null, placeholder = 'اختر المنتخب'): HTMLSelectElement {
