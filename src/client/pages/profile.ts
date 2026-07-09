@@ -46,11 +46,13 @@ async function load(): Promise<void> {
     el('div', { class: 'grid', style: 'max-width:420px' },
       el('div', { class: 'field' }, el('label', {}, 'كلمة المرور الحالية'), c0),
       el('div', { class: 'field' }, el('label', {}, 'كلمة المرور الجديدة'), n1,
-        el('span', { class: 'helper-text' }, '٨ أحرف على الأقل')),
+        el('span', { class: 'helper-text' }, '٨ خانات على الأقل وبينها حرف (عربي أو إنكليزي) — مثال: 1234567م')),
       el('div', { class: 'field' }, el('label', {}, 'تأكيد كلمة المرور الجديدة'), n2),
       pwBtn)));
   pwBtn.onclick = async () => {
-    if (n1.value.length < 8) { toast('كلمة المرور الجديدة: ٨ أحرف على الأقل', 'err'); return; }
+    if (n1.value.length < 8 || !/[A-Za-z\u0621-\u064A]/.test(n1.value)) {
+      toast('كلمة المرور: ٨ خانات على الأقل وبينها حرف واحد (عربي أو إنكليزي) — مثال: 1234567م', 'err'); return;
+    }
     if (n1.value !== n2.value) { toast('تأكيد كلمة المرور غير مطابق', 'err'); return; }
     pwBtn.classList.add('loading');
     try {

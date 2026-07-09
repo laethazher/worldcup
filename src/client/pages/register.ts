@@ -35,6 +35,7 @@ function normalizePhone(raw: string): string {
   if (p.startsWith('+964')) p = '0' + p.slice(4);
   else if (p.startsWith('00964')) p = '0' + p.slice(5);
   else if (p.startsWith('964') && p.length === 13) p = '0' + p.slice(3);
+  else if (/^7\d{9}$/.test(p)) p = '0' + p;
   return p;
 }
 const USERNAME_RE = /^[a-zA-Z0-9._-]{3,32}$/;
@@ -91,7 +92,9 @@ function validate(): boolean {
   else setErr(userIn, null);
 
   if (!passIn.value) { setErr(passIn, 'كلمة المرور مطلوبة'); ok = false; }
-  else if (passIn.value.length < 8) { setErr(passIn, '٨ أحرف على الأقل'); ok = false; }
+  else if (passIn.value.length < 8 || !/[A-Za-z\u0621-\u064A]/.test(passIn.value)) {
+    setErr(passIn, '٨ خانات على الأقل وبينها حرف واحد (عربي أو إنكليزي) — مثال: 1234567م'); ok = false;
+  }
   else setErr(passIn, null);
 
   if (confirmIn.value !== passIn.value) { setErr(confirmIn, 'غير مطابقة لكلمة المرور'); ok = false; }

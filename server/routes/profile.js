@@ -2,12 +2,13 @@ import { Router } from 'express';
 import { db } from '../db.js';
 import { authRequired, verifyPassword, hashPassword } from '../auth.js';
 import { audit } from '../audit.js';
-import { normalizePhone, validPhone, phoneTakenBy, PHONE_TAKEN, PHONE_INVALID, constraintMessage } from '../validation.js';
+import { normalizePhone, validPhone, phoneTakenBy, normalizeDigits, passwordProblem, PHONE_TAKEN, PHONE_INVALID, constraintMessage } from '../validation.js';
 
 const r = Router();
 r.use(authRequired);
 
 const WRONG_CURRENT = 'كلمة المرور الحالية غير صحيحة';
+const currentOk = (pw, hash) => verifyPassword(pw, hash) || verifyPassword(normalizeDigits(pw), hash);
 const self = (id) => db.prepare(`
   SELECT e.id, e.username, e.name, e.phone, e.department, e.role, e.active,
          e.created_at, e.last_login_at, e.login_count, e.photo_url,
@@ -28,15 +29,16 @@ r.post('/profile/password', (req, res) => {
   const password = String(req.body?.password ?? '');
   const confirm = String(req.body?.confirm ?? '');
 
-  if (!verifyPassword(current, me.password_hash)) {
+  if (!currentOk(current, me.password_hash)) {
     audit(req, 'PASSWORD_CHANGE_DENIED', 'employee', me.id, 'كلمة المرور الحالية خاطئة', 'failure');
     return res.status(400).json({ error: WRONG_CURRENT });
   }
-  if (password.length < 8) return res.status(400).json({ error: 'كلمة المرور الجديدة: ٨ أحرف على الأقل' });
+  const pwErr = passwordProblem(password);
+  if (pwErr) return res.status(400).json({ error: pwErr });
   if (password !== confirm) return res.status(400).json({ error: 'تأكيد كلمة المرور غير مطابق' });
 
   db.prepare('UPDATE employees SET password_hash = ?, token_version = token_version + 1 WHERE id = ?')
-    .run(hashPassword(password), me.id);
+    .run(hashPassword(normalizeDigits(password)), me.id);
   audit(req, 'PASSWORD_CHANGED', 'employee', me.id);
   res.clearCookie('token');
   res.json({ ok: true, reauth: true });
@@ -46,7 +48,7 @@ r.post('/profile/password', (req, res) => {
 r.post('/profile/phone', (req, res) => {
   const me = self(req.user.id);
   const current = String(req.body?.current ?? '');
-  if (!verifyPassword(current, me.password_hash)) {
+  if (!currentOk(current, me.password_hash)) {
     audit(req, 'PHONE_CHANGE_DENIED', 'employee', me.id, 'كلمة المرور الحالية خاطئة', 'failure');
     return res.status(400).json({ error: WRONG_CURRENT });
   }

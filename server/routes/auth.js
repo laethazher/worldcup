@@ -5,8 +5,8 @@ import { audit, rateLimit } from '../audit.js';
 import { config } from '../config.js';
 import { createNotification } from '../notify.js';
 import {
-  cleanName, nameTakenBy, phoneTakenBy, normalizePhone, validPhone,
-  USERNAME_RE, NAME_TAKEN, PHONE_TAKEN, PHONE_INVALID, constraintMessage,
+  cleanName, nameTakenBy, phoneTakenBy, normalizePhone, validPhone, normalizeDigits,
+  passwordProblem, USERNAME_RE, NAME_TAKEN, PHONE_TAKEN, PHONE_INVALID, constraintMessage,
 } from '../validation.js';
 
 const r = Router();
@@ -23,7 +23,7 @@ function openSession(req, res, user, auditAction) {
 }
 
 /* ─── الدخول: يقبل اسم المستخدم أو رقم الهاتف ─── */
-r.post('/login', rateLimit({ windowMs: 60_000, max: 6 }), (req, res) => {
+r.post('/login', rateLimit({ windowMs: 60_000, max: 30 }), (req, res) => {
   const { username, password } = req.body || {};
   if (!username || !password) return res.status(400).json({ error: 'أدخل اسم المستخدم أو رقم الهاتف مع كلمة المرور' });
 
@@ -33,7 +33,9 @@ r.post('/login', rateLimit({ windowMs: 60_000, max: 6 }), (req, res) => {
     const phone = normalizePhone(ident);
     if (validPhone(phone)) user = db.prepare('SELECT * FROM employees WHERE phone = ? AND active = 1').get(phone);
   }
-  if (!user || !verifyPassword(String(password), user.password_hash)) {
+  const pw = String(password);
+  const passOk = user && (verifyPassword(pw, user.password_hash) || verifyPassword(normalizeDigits(pw), user.password_hash));
+  if (!user || !passOk) {
     audit(req, 'LOGIN_FAILED', 'employee', '', ident, 'failure');
     return res.status(401).json({ error: 'بيانات الدخول غير صحيحة — تأكد من اسم المستخدم/رقم الهاتف وكلمة المرور' });
   }
@@ -56,7 +58,7 @@ r.get('/register/options', (_req, res) => {
    الاسم الكامل ورقم الهاتف إجباريان (فريدان)، الفرع إجباري من القائمة،
    القسم اختياري ويجب أن يتبع الفرع. الدور دائماً employee (لا يُقبل من الطلب).
    بعد النجاح: جلسة مفتوحة مباشرة + تدقيق + إشعار حي للإدارة. */
-r.post('/register', rateLimit({ windowMs: 60_000, max: 5 }), (req, res) => {
+r.post('/register', rateLimit({ windowMs: 60_000, max: 15 }), (req, res) => {
   if (getSetting('self_signup', '1') === '0') {
     return res.status(403).json({ error: 'التسجيل الذاتي متوقف حالياً — راجع الإدارة لإنشاء حسابك' });
   }
@@ -75,8 +77,8 @@ r.post('/register', rateLimit({ windowMs: 60_000, max: 5 }), (req, res) => {
   if (!validPhone(phone)) return res.status(400).json({ error: PHONE_INVALID });
   if (!username) return res.status(400).json({ error: 'اسم المستخدم مطلوب' });
   if (!USERNAME_RE.test(username)) return res.status(400).json({ error: 'اسم المستخدم: 3–32 حرفاً لاتينياً أو أرقاماً أو . _ -' });
-  if (!password) return res.status(400).json({ error: 'كلمة المرور مطلوبة' });
-  if (password.length < 8) return res.status(400).json({ error: 'كلمة المرور: ٨ أحرف على الأقل' });
+  const pwErr = passwordProblem(password);
+  if (pwErr) return res.status(400).json({ error: pwErr });
   if (password !== confirm) return res.status(400).json({ error: 'تأكيد كلمة المرور غير مطابق' });
 
   const branch = Number.isInteger(branchId)
@@ -99,7 +101,7 @@ r.post('/register', rateLimit({ windowMs: 60_000, max: 5 }), (req, res) => {
   try {
     const info = db.prepare(`INSERT INTO employees(username, password_hash, name, phone, department, department_id, branch_id, role)
                              VALUES(?,?,?,?,?,?,?, 'employee')`)
-      .run(username, hashPassword(password), name, phone, dep ? dep.name : '', dep ? dep.id : null, branch.id);
+      .run(username, hashPassword(normalizeDigits(password)), name, phone, dep ? dep.name : '', dep ? dep.id : null, branch.id);
 
     const user = db.prepare('SELECT * FROM employees WHERE id = ?').get(info.lastInsertRowid);
     const payload = openSession(req, res, user, 'EMPLOYEE_SELF_REGISTERED');

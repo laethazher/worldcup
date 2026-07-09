@@ -11,7 +11,7 @@
       <h1>مرحباً بك</h1>
       <p class="login-sub">المنصة الرسمية لتوقعات الموظفين — تحدي كأس العالم ٢٠٢٦</p>
       <form id="login-form" class="login-form">
-        <div class="field"><label for="u">اسم المستخدم أو رقم الهاتف</label><input id="u" class="input" autocomplete="username" placeholder="username أو 07XXXXXXXXX" required></div>
+        <div class="field"><label for="u">اسم المستخدم أو رقم الهاتف</label><input id="u" class="input" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="username أو 07XXXXXXXXX" required></div>
         <div class="field"><label for="p">كلمة المرور</label><input id="p" class="input" type="password" autocomplete="current-password" required></div>
         <button id="go" class="btn btn-primary" type="submit">دخول</button>
       </form>
@@ -20,5 +20,14 @@
     </div>
   </div>
   <script type="module" src="/js/pages/login.js"></script>
+  <script type="module">window.__ahcModules = true;</script>
+  <script>
+  setTimeout(function () {
+    if (window.__ahcModules) return;
+    var s = document.getElementById('splash');
+    var m = '<div style="max-width:300px;margin:38vh auto 0;text-align:center;font-family:sans-serif;font-size:15px;line-height:1.9;color:#fff;padding:0 16px">متصفح هاتفك قديم ولا يستطيع تشغيل المنصة.<br><b>حدِّث متصفح كروم من متجر التطبيقات</b> ثم أعد فتح الصفحة.</div>';
+    if (s) { s.innerHTML = m; } else { document.body.insertAdjacentHTML('afterbegin', m); }
+  }, 4000);
+  </script>
 </body>
 </html>

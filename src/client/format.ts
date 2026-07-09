@@ -12,7 +12,9 @@ export function shortTime(utc: string): string {
 }
 
 export function dateTimeFull(utc: string): string {
-  return new Intl.DateTimeFormat('ar-IQ', { timeZone: TZ, dateStyle: 'medium', timeStyle: 'short' }).format(new Date(utc));
+  return new Intl.DateTimeFormat('ar-IQ', {
+    timeZone: TZ, day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit',
+  }).format(new Date(utc));
 }
 
 export interface CDParts { d: number; h: number; m: number; s: number; done: boolean; }

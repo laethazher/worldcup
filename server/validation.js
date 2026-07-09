@@ -16,16 +16,30 @@ export function nameTakenBy(name, excludeId = 0) {
     .get(name, excludeId);
 }
 
-/** يطبّع الرقم: أرقام عربية → لاتينية، إزالة الفواصل، +964/00964 → 0 */
+/** أرقام عربية/فارسية → لاتينية (يُستخدم للهاتف ولكلمة المرور لتوحيد لوحات المفاتيح) */
+export function normalizeDigits(s) {
+  return String(s ?? '')
+    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
+}
+
+/** يطبّع الرقم: أرقام عربية → لاتينية، إزالة الفواصل، +964/00964 → 0، وإكمال الصفر الناقص */
 export function normalizePhone(raw) {
-  let p = String(raw ?? '').trim();
-  p = p.replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
-  p = p.replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
-  p = p.replace(/[\s\-().]/g, '');
+  let p = normalizeDigits(String(raw ?? '').trim()).replace(/[\s\-().]/g, '');
   if (p.startsWith('+964')) p = '0' + p.slice(4);
   else if (p.startsWith('00964')) p = '0' + p.slice(5);
   else if (p.startsWith('964') && p.length === 13) p = '0' + p.slice(3);
+  else if (/^7\d{9}$/.test(p)) p = '0' + p;   // نسي الصفر الأول: 7XXXXXXXXX
   return p;
+}
+
+/* ─── قاعدة كلمة المرور الموحّدة: ٨ خانات على الأقل وفيها حرف واحد (عربي أو إنكليزي) ─── */
+export const PASSWORD_HINT = '٨ خانات على الأقل وبينها حرف واحد (عربي أو إنكليزي) — مثال: 1234567م';
+export function passwordProblem(pw) {
+  if (!pw) return 'كلمة المرور مطلوبة';
+  if (pw.length < 8) return 'كلمة المرور قصيرة — ' + PASSWORD_HINT;
+  if (!/[A-Za-z\u0621-\u064A]/.test(pw)) return 'أضف إلى كلمة المرور حرفاً واحداً على الأقل (عربي أو إنكليزي)';
+  return null;
 }
 export const validPhone = (p) => /^07\d{9}$/.test(p);
 export const phoneTakenBy = (phone, excludeId = 0) =>

@@ -12,7 +12,9 @@ export function el<K extends keyof HTMLElementTagNameMap>(
     else if (k === 'dataset') Object.assign((node as HTMLElement).dataset, v);
     else node.setAttribute(k, String(v));
   }
-  for (const c of children.flat(Infinity as 1)) {
+  const flat = (arr: readonly unknown[]): unknown[] =>
+    arr.reduce<unknown[]>((acc, c) => acc.concat(Array.isArray(c) ? flat(c) : c), []);
+  for (const c of flat(children)) {
     if (c === null || c === undefined || c === false) continue;
     node.append(c instanceof Node ? c : document.createTextNode(String(c)));
   }

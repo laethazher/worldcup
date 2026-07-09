@@ -54,8 +54,9 @@ export function audit(req, action, entity = '', entityId = '', details = '', res
 }
 
 // ---- rate limiter (per key, sliding window) ----
-const buckets = new Map();
+// كل مُقيِّد له سلّته الخاصة: عدّاد الدخول لا يختلط بعدّاد التسجيل أو غيره.
 export function rateLimit({ windowMs = 60_000, max = 5, keyFn = (req) => req.ip } = {}) {
+  const buckets = new Map();
   return (req, res, next) => {
     const key = keyFn(req);
     const now = Date.now();

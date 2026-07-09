@@ -49,14 +49,14 @@
 
         <div class="field" id="f-username">
           <label for="username">اسم المستخدم <span class="req">*</span></label>
-          <input id="username" class="input" dir="ltr" autocomplete="username" placeholder="بالإنكليزية: ahmed.ali" required>
+          <input id="username" class="input" dir="ltr" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="بالإنكليزية: ahmed.ali" required>
           <p class="helper-text" hidden></p>
         </div>
 
         <div class="form-grid2">
           <div class="field" id="f-pass">
             <label for="pass">كلمة المرور <span class="req">*</span></label>
-            <input id="pass" class="input" type="password" autocomplete="new-password" placeholder="٨ أحرف على الأقل" required>
+            <input id="pass" class="input" type="password" autocomplete="new-password" placeholder="مثال: 1234567م" required>
             <p class="helper-text" hidden></p>
           </div>
           <div class="field" id="f-confirm">
@@ -73,5 +73,14 @@
     </div>
   </div>
   <script type="module" src="/js/pages/register.js"></script>
+  <script type="module">window.__ahcModules = true;</script>
+  <script>
+  setTimeout(function () {
+    if (window.__ahcModules) return;
+    var s = document.getElementById('splash');
+    var m = '<div style="max-width:300px;margin:38vh auto 0;text-align:center;font-family:sans-serif;font-size:15px;line-height:1.9;color:#fff;padding:0 16px">متصفح هاتفك قديم ولا يستطيع تشغيل المنصة.<br><b>حدِّث متصفح كروم من متجر التطبيقات</b> ثم أعد فتح الصفحة.</div>';
+    if (s) { s.innerHTML = m; } else { document.body.insertAdjacentHTML('afterbegin', m); }
+  }, 4000);
+  </script>
 </body>
 </html>
