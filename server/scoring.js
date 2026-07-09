@@ -1,8 +1,5 @@
 import { db, getSetting } from './db.js';
 
-export const STAGE_KEYS = ['R16', 'QF', 'SF', 'THIRD', 'FINAL'];
-const DEFAULT_STAGE_MULT = { R16: 1, QF: 1, SF: 2, THIRD: 2, FINAL: 3 };
-
 /** التهيئة الكاملة — متوافقة رجعياً مع صيغة {direction} القديمة (تنشطر إلى فوز/تعادل). */
 export function scoringConfig() {
   const raw = JSON.parse(getSetting('scoring', '{}'));
@@ -13,7 +10,6 @@ export function scoringConfig() {
     wrong: raw.wrong ?? 0,
     qualification: raw.qualification ?? 2,
     champion_bonus: raw.champion_bonus ?? 10,
-    stage_multipliers: { ...DEFAULT_STAGE_MULT, ...(raw.stage_multipliers || {}) },
   };
 }
 const RULES = scoringConfig;
@@ -45,13 +41,11 @@ export function scoreMatch(matchId) {
     else if (outcomeOk) { base = R.winner; kind = actualSign === 0 ? 'تعادل صحيح' : 'فائز صحيح'; }
     else { base = R.wrong; kind = 'توقع خاطئ'; }
     const qual = (m.advancing_team && predictedAdvancer(p, m) === m.advancing_team) ? R.qualification : 0;
-    const total = (base + qual) * m.multiplier;
-    const reason = kind
-      + (qual ? ' + متأهل' : '')
-      + (m.multiplier !== 1 ? ` ×${m.multiplier} (${m.stage_ar || m.stage})` : '');
+    const total = base + qual;
+    const reason = kind + (qual ? ' + متأهل' : '');
     upd.run(base, qual, total, exact ? 1 : 0, outcomeOk ? 1 : 0, p.id);
-    upd2.run(m.multiplier, reason,
-      JSON.stringify({ kind, base, qual, stage_mult: m.multiplier, total }), p.id);
+    upd2.run(1, reason,
+      JSON.stringify({ kind, base, qual, total }), p.id);
   }
 }
 

@@ -41,7 +41,7 @@ async function load(): Promise<void> {
     const rk = d.my_stats;
     const hero = el('section', { class: 'hero rise' },
       el('span', { class: 'eyebrow hero-brand' }, 'الحسني هوم سنتر — تحدي كأس العالم ٢٠٢٦'),
-      el('span', { class: 'chip crimson stage-chip' }, `${m.stage_ar} · ×${m.multiplier}`),
+      el('span', { class: 'chip crimson stage-chip' }, m.stage_ar),
       el('div', { class: 'hero-teams' },
         el('div', { class: 'hero-team' }, flagEl(m.home_team, 'lg'), el('b', {}, m.home_name)),
         el('div', { class: 'hero-vs' }, 'VS'),

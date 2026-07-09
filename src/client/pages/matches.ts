@@ -28,7 +28,7 @@ async function load(): Promise<void> {
     if (!group.length) continue;
     const gridEl = el('div', { class: 'match-grid' }, ...group.map(card));
     main.append(el('section', { class: `stage-block rise-${Math.min(riseIdx++, 4)}` },
-      el('div', { class: 'stage-head' }, el('h2', {}, label), el('span', { class: 'chip mult' }, `النقاط ×${group[0].multiplier}`)),
+      el('div', { class: 'stage-head' }, el('h2', {}, label)),
       gridEl));
   }
 }

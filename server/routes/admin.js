@@ -7,7 +7,7 @@ import { audit } from '../audit.js';
 import { broadcast } from '../sse.js';
 import { recalcAll, leaderboard, branchLeaderboard, AWARD_META } from '../scoring.js';
 import { createNotification, validateTarget, recipientIds, PRIORITIES } from '../notify.js';
-import { scoringConfig, STAGE_KEYS } from '../scoring.js';
+import { scoringConfig } from '../scoring.js';
 import { isCompleted, completeTournament, regenerateWinners, reopenTournament, tournamentStatus, TOURNAMENT } from '../tournament.js';
 
 /** إعلان ما بعد الاحتساب: لوحة حية + إنجازات (بث موجّه + تدقيق + إشعار نظام دائم). */
@@ -158,14 +158,13 @@ r.get('/matches/:id/scoring', (req, res) => {
 r.patch('/matches/:id', (req, res) => {
   const m = db.prepare('SELECT * FROM matches WHERE id=?').get(req.params.id);
   if (!m) return res.status(404).json({ error: 'المباراة غير موجودة' });
-  const { home_team, away_team, kickoff_utc, multiplier } = req.body || {};
+  const { home_team, away_team, kickoff_utc } = req.body || {};
   db.prepare(`UPDATE matches SET
       home_team = COALESCE(?, home_team),
       away_team = COALESCE(?, away_team),
-      kickoff_utc = COALESCE(?, kickoff_utc),
-      multiplier = COALESCE(?, multiplier)
+      kickoff_utc = COALESCE(?, kickoff_utc)
     WHERE id=?`)
-    .run(home_team ?? null, away_team ?? null, kickoff_utc ?? null, multiplier ?? null, m.id);
+    .run(home_team ?? null, away_team ?? null, kickoff_utc ?? null, m.id);
   audit(req, 'MATCH_UPDATED', 'match', m.id, JSON.stringify(req.body));
   broadcast('matches_changed', { match_id: m.id });
   res.json({ ok: true });
@@ -596,8 +595,8 @@ r.get('/export/predictions.csv', (req, res) => {
     ORDER BY m.kickoff_utc, e.name`).all();
   audit(req, 'EXPORT', 'predictions');
   csvResponse(res, 'توقعات-الموظفين.csv',
-    ['الموظف', 'الفرع', 'رقم المباراة', 'المرحلة', 'المضيف', 'الضيف', 'توقع المضيف', 'توقع الضيف', 'المتأهل بالترجيح', 'النقاط', 'سبب الاحتساب', 'المضاعف', 'وقت التوقع'],
-    rows.map(x => [x.emp, x.branch || '', x.round_no, x.stage_ar, x.home, x.away, x.home_score, x.away_score, x.penalty_winner || '', x.points_total ?? '', x.calc_reason ?? '', x.calc_multiplier ?? '', x.created_at]));
+    ['الموظف', 'الفرع', 'رقم المباراة', 'المرحلة', 'المضيف', 'الضيف', 'توقع المضيف', 'توقع الضيف', 'المتأهل بالترجيح', 'النقاط', 'سبب الاحتساب', 'وقت التوقع'],
+    rows.map(x => [x.emp, x.branch || '', x.round_no, x.stage_ar, x.home, x.away, x.home_score, x.away_score, x.penalty_winner || '', x.points_total ?? '', x.calc_reason ?? '', x.created_at]));
 });
 
 // ---------------------------------------------------------------- notifications, audit, analytics
@@ -825,37 +824,17 @@ r.post('/scoring-config', (req, res) => {
     if (!intIn(b[k], 0, 99)) return res.status(400).json({ error: `قيمة «${k}» غير صحيحة — عدد صحيح 0–99` });
     next[k] = Number(b[k]);
   }
-  const changedStages = [];
-  if (b.stage_multipliers) {
-    next.stage_multipliers = { ...cur.stage_multipliers };
-    for (const st of STAGE_KEYS) {
-      if (b.stage_multipliers[st] === undefined) continue;
-      if (!intIn(b.stage_multipliers[st], 1, 10)) {
-        return res.status(400).json({ error: `مضاعف مرحلة ${st}: عدد صحيح 1–10` });
-      }
-      const v = Number(b.stage_multipliers[st]);
-      if (v !== cur.stage_multipliers[st]) changedStages.push(st);
-      next.stage_multipliers[st] = v;
-    }
-  }
-
   const LABELS = { exact: 'الدقيقة', winner: 'الاتجاه الصحيح', wrong: 'الخاطئ',
     qualification: 'المتأهل', champion_bonus: 'مكافأة البطل' };
   const diffs = [];
   for (const k of Object.keys(LABELS)) {
     if (next[k] !== cur[k]) diffs.push(`${LABELS[k]}: «${cur[k]}» ← «${next[k]}»`);
   }
-  for (const st of changedStages) {
-    diffs.push(`مضاعف ${st}: «${cur.stage_multipliers[st]}» ← «${next.stage_multipliers[st]}»`);
-  }
 
   setSetting('scoring', JSON.stringify(next));
-  const stageUpd = db.prepare('UPDATE matches SET multiplier = ? WHERE stage = ?');
-  for (const st of changedStages) stageUpd.run(next.stage_multipliers[st], st);
 
   const { board, granted } = recalcAll({ trigger: 'config', actor: req.user.name });
   announceRecalc(req, board, granted);
-  if (changedStages.length) broadcast('matches_changed', {});
   audit(req, 'SCORING_CONFIG_UPDATED', 'settings', '', diffs.length ? diffs.join(' · ') : 'بلا تغييرات');
   res.json({ ok: true, players: board.length, changed: diffs.length });
 });

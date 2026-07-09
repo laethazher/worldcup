@@ -59,7 +59,7 @@ async function tabResults(body: HTMLElement): Promise<void> {
 function resultCard(m: MatchView, teams: { code: string; name_ar: string }[]): HTMLElement {
   const c = el('div', { class: 'card' });
   const head = el('div', { class: 'mc-top', style: 'margin-bottom:14px' },
-    el('span', { class: 'chip' }, `مباراة ${nf.format(m.round_no)} · ${m.stage_ar} · ×${m.multiplier}`),
+    el('span', { class: 'chip' }, `مباراة ${nf.format(m.round_no)} · ${m.stage_ar}`),
     m.status === 'finished' ? el('span', { class: 'chip ok' }, '✓ سُجّلت النتيجة')
       : m.locked ? el('span', { class: 'chip crimson' }, 'جارية — التوقع مقفل')
       : el('span', { class: 'chip' }, dateTimeFull(m.kickoff_utc)));
@@ -294,10 +294,6 @@ async function tabSettings(body: HTMLElement): Promise<void> {
     exact: num(c.exact), winner: num(c.winner), wrong: num(c.wrong),
     qualification: num(c.qualification), champion_bonus: num(c.champion_bonus),
   };
-  const STAGES: [string, string][] = [['R16', 'دور الـ16'], ['QF', 'ربع النهائي'], ['SF', 'نصف النهائي'], ['THIRD', 'البرونزية'], ['FINAL', 'النهائي']];
-  const M: Record<string, HTMLInputElement> = {};
-  for (const [k] of STAGES) M[k] = num(c.stage_multipliers[k], 1, 10);
-
   const fld = (label: string, i: HTMLInputElement, hint = '') =>
     el('div', { class: 'field' }, el('label', {}, label), i, hint ? el('span', { class: 'helper-text' }, hint) : null);
   const save = el('button', { class: 'btn btn-primary' }, '💾 حفظ وإعادة الاحتساب') as HTMLButtonElement;
@@ -311,10 +307,6 @@ async function tabSettings(body: HTMLElement): Promise<void> {
       fld('التوقع الخاطئ', F.wrong),
       fld('توقع المتأهل', F.qualification), fld('مكافأة البطل', F.champion_bonus)),
     el('div', { class: 'hr' }),
-    el('h4', { class: 't-sm', style: 'margin-bottom:var(--s-3)' }, 'مضاعفات المراحل'),
-    el('div', { class: 'grid', style: 'grid-template-columns:repeat(auto-fit,minmax(120px,1fr))' },
-      ...STAGES.map(([k, l]) => fld(l, M[k]))),
-    el('div', { class: 'hr' }),
     save,
     el('p', { class: 'helper-text', style: 'margin-top:var(--s-3)' },
       `قفل توقع البطل: ${s.champion_lock_utc ? dateTimeFull(s.champion_lock_utc) : 'غير محدد'}`)));
@@ -322,9 +314,8 @@ async function tabSettings(body: HTMLElement): Promise<void> {
   save.onclick = async () => {
     save.classList.add('loading');
     try {
-      const payload: any = { stage_multipliers: {} };
+      const payload: any = {};
       for (const [k, i] of Object.entries(F)) payload[k] = Number(i.value);
-      for (const [k] of STAGES) payload.stage_multipliers[k] = Number(M[k].value);
       const r = await post<{ players: number; changed: number }>('/api/admin/scoring-config', payload);
       toast(r.changed ? `حُفظت التهيئة وأُعيد الاحتساب لـ ${nf.format(r.players)} مشاركاً ✓` : 'بلا تغييرات', 'ok');
     } finally { save.classList.remove('loading'); }

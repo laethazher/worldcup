@@ -59,7 +59,7 @@ export async function openPrediction(m: MatchView, onSaved: (m: MatchView) => vo
   const save = el('button', { class: 'btn btn-primary', style: 'width:100%' }, 'تأكيد التوقع') as HTMLButtonElement;
 
   const content = el('div', {},
-    el('div', { class: 'chip crimson' }, m.stage_ar, ` · ×${m.multiplier}`),
+    el('div', { class: 'chip crimson' }, m.stage_ar),
     el('h2', { style: 'margin-top:12px;font-size:var(--text-lg)' }, 'ما توقعك للنتيجة؟'),
     el('p', { style: 'color:var(--muted);font-size:var(--text-sm);margin-top:2px' }, kickoffLabel(m.kickoff_utc)),
     el('div', { class: 'pm-face' },
