@@ -85,7 +85,10 @@ async function load(): Promise<void> {
     for (const m of d.recent) {
       c.append(el('div', { class: 'mini-match' },
         el('span', { class: 'mini-name e' }, m.home_name), flagEl(m.home_team, 'sm', false),
-        el('b', { class: 'mini-score num' }, `${m.home_score} - ${m.away_score}`),
+        el('b', { class: 'mini-score num', style: 'display:inline-flex;align-items:baseline;justify-content:center;gap:.3em;direction:rtl' },
+          el('span', {}, String(m.home_score)),
+          el('span', {}, '-'),
+          el('span', {}, String(m.away_score))),
         flagEl(m.away_team, 'sm', false), el('span', { class: 'mini-name s' }, m.away_name),
         (m.my_prediction?.points_total ?? 0) > 0
           ? el('span', { class: 'chip ok' }, `+${m.my_prediction!.points_total}`)

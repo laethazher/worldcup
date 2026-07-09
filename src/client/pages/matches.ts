@@ -52,7 +52,11 @@ function card(m: MatchView): HTMLElement {
   const mid = el('div', { class: 'mc-mid' });
   let cdBlock: HTMLElement | null = null;
   if (m.status === 'finished') {
-    mid.append(el('div', { class: 'mc-score' }, `${m.home_score} - ${m.away_score}`));
+    // النتيجة النهائية: هدف المضيف يمين وهدف الضيف يسار ليطابق ترتيب العلمين (RTL) — إصلاح انعكاس الأرقام
+    mid.append(el('div', { class: 'mc-score', style: 'display:inline-flex;align-items:baseline;justify-content:center;gap:.34em;direction:rtl' },
+      el('span', {}, String(m.home_score)),
+      el('span', {}, '-'),
+      el('span', {}, String(m.away_score))));
     if (m.advancing_team && m.home_score === m.away_score) {
       mid.append(el('span', { class: 'chip gold' }, `تأهل بالترجيح: ${m.advancing_team === m.home_team ? m.home_name : m.away_name}`));
     }
