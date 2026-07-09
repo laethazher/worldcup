@@ -9,8 +9,7 @@ export function scoringConfig() {
   const legacyDir = raw.direction ?? 2;
   return {
     exact: raw.exact ?? 5,
-    winner: raw.winner ?? legacyDir,
-    draw: raw.draw ?? legacyDir,
+    winner: raw.winner ?? legacyDir,   // الاتجاه الصحيح (فائز أو تعادل) — حالة واحدة
     wrong: raw.wrong ?? 0,
     qualification: raw.qualification ?? 2,
     champion_bonus: raw.champion_bonus ?? 10,
@@ -41,9 +40,9 @@ export function scoreMatch(matchId) {
     const actualSign = sign(m.home_score, m.away_score);
     const outcomeOk = sign(p.home_score, p.away_score) === actualSign;
     let base, kind;
+    // خيار أ: التعادل حالة واحدة ٥/٢/٠ — الاتجاه الصحيح (فائز أو تعادل) بلا بونص منفصل
     if (exact) { base = R.exact; kind = 'توقع دقيق'; }
-    else if (outcomeOk && actualSign === 0) { base = R.draw; kind = 'تعادل صحيح'; }
-    else if (outcomeOk) { base = R.winner; kind = 'فائز صحيح'; }
+    else if (outcomeOk) { base = R.winner; kind = actualSign === 0 ? 'تعادل صحيح' : 'فائز صحيح'; }
     else { base = R.wrong; kind = 'توقع خاطئ'; }
     const qual = (m.advancing_team && predictedAdvancer(p, m) === m.advancing_team) ? R.qualification : 0;
     const total = (base + qual) * m.multiplier;

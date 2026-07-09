@@ -95,6 +95,54 @@ r.post('/matches/:id/result', (req, res) => {
   res.json({ ok: true });
 });
 
+/** تصفير نتيجة مباراة: تُعاد «قيد الانتظار» وتُلغى النقاط — لتصحيح إدخال خاطئ ثم إعادة الإدخال. */
+r.post('/matches/:id/reset', (req, res) => {
+  if (isCompleted()) {
+    return res.status(409).json({ error: 'البطولة مكتملة ومُقفلة — أعد فتحها من الإعدادات لتصفير نتيجة', tournament_locked: true });
+  }
+  const m = db.prepare('SELECT * FROM matches WHERE id=?').get(req.params.id);
+  if (!m) return res.status(404).json({ error: 'المباراة غير موجودة' });
+  if (m.status !== 'finished') return res.status(400).json({ error: 'لا توجد نتيجة مسجّلة لتصفيرها' });
+
+  // لا تُصفّر مباراة يعتمد عليها دور لاحق سُجّلت نتيجته — صفّر اللاحقة أولاً
+  const hop = BRACKET[m.round_no];
+  if (hop) {
+    for (const dep of [hop.winner?.match, hop.loser?.match].filter(Boolean)) {
+      const dm = db.prepare('SELECT round_no, stage_ar, status FROM matches WHERE round_no=?').get(dep);
+      if (dm && dm.status === 'finished') {
+        return res.status(409).json({ error: `صفّر أولاً مباراة ${dep} (${dm.stage_ar}) — نتيجتها مبنية على هذه المباراة` });
+      }
+    }
+  }
+
+  const prev = `${m.home_score}-${m.away_score} (${m.advancing_team})`;
+
+  db.prepare(`UPDATE matches SET home_score=NULL, away_score=NULL, advancing_team=NULL,
+              status='scheduled', finished_at=NULL WHERE id=?`).run(m.id);
+
+  // تراجع عن ترقية الأقواس: أفرِغ الخانات التي ملأتها هذه المباراة في الأدوار اللاحقة
+  if (hop) {
+    if (hop.winner) db.prepare(`UPDATE matches SET ${hop.winner.slot}_team=NULL WHERE round_no=?`).run(hop.winner.match);
+    if (hop.loser)  db.prepare(`UPDATE matches SET ${hop.loser.slot}_team=NULL  WHERE round_no=?`).run(hop.loser.match);
+  }
+
+  const { board, granted } = recalcAll({ trigger: 'reset', match_id: m.id, actor: req.user.name });
+  audit(req, 'RESULT_RESET', 'match', m.id, `«${prev}» → صُفّرت · م${m.round_no} ${m.stage_ar}`);
+
+  broadcast('match_result', { match_id: m.id, round_no: m.round_no, reset: true });
+  broadcast('matches_changed', {});
+  announceRecalc(req, board, granted);
+
+  // إبلاغ حي لكل من توقّع هذه المباراة بأن نتيجتها أُعيدت للانتظار
+  for (const row of db.prepare('SELECT employee_id FROM predictions WHERE match_id = ?').all(m.id)) {
+    broadcast('score_update',
+      { match_id: m.id, round_no: m.round_no, points: null, reason: 'أُعيدت المباراة إلى قيد الانتظار' },
+      row.employee_id);
+  }
+
+  res.json({ ok: true });
+});
+
 /** تاريخ احتساب مباراة: توقع كل موظف + النقاط + السبب + المضاعف المستخدم. */
 r.get('/matches/:id/scoring', (req, res) => {
   const m = db.prepare('SELECT id, round_no, stage_ar, status, home_score, away_score, multiplier FROM matches WHERE id=?').get(req.params.id);
@@ -772,7 +820,7 @@ r.post('/scoring-config', (req, res) => {
   const intIn = (v, lo, hi) => Number.isInteger(Number(v)) && Number(v) >= lo && Number(v) <= hi;
 
   const next = { ...cur };
-  for (const k of ['exact', 'winner', 'draw', 'wrong', 'qualification', 'champion_bonus']) {
+  for (const k of ['exact', 'winner', 'wrong', 'qualification', 'champion_bonus']) {
     if (b[k] === undefined) continue;
     if (!intIn(b[k], 0, 99)) return res.status(400).json({ error: `قيمة «${k}» غير صحيحة — عدد صحيح 0–99` });
     next[k] = Number(b[k]);
@@ -791,7 +839,7 @@ r.post('/scoring-config', (req, res) => {
     }
   }
 
-  const LABELS = { exact: 'الدقيقة', winner: 'الفائز', draw: 'التعادل', wrong: 'الخاطئ',
+  const LABELS = { exact: 'الدقيقة', winner: 'الاتجاه الصحيح', wrong: 'الخاطئ',
     qualification: 'المتأهل', champion_bonus: 'مكافأة البطل' };
   const diffs = [];
   for (const k of Object.keys(LABELS)) {

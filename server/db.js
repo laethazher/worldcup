@@ -140,7 +140,6 @@ CREATE TABLE IF NOT EXISTS predictions (
   home_score INTEGER NOT NULL,
   away_score INTEGER NOT NULL,
   penalty_winner TEXT DEFAULT NULL,        -- team code, required when draw predicted
-  joker INTEGER NOT NULL DEFAULT 0,
   points_base INTEGER DEFAULT NULL,
   points_qual INTEGER DEFAULT NULL,
   points_total INTEGER DEFAULT NULL,

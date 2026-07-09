@@ -20,7 +20,7 @@ const main = document.getElementById('app')!;
 let stopCd: (() => void) | null = null;
 
 const AWARD_ICONS: Record<string, string> = {
-  PERFECT: '🎯', SNIPER: '🔫', STREAK3: '🔥', EXPERT: '🧠', JOKER_HIT: '🃏', CHAMPION: '🔮', LEGEND: '👑',
+  PERFECT: '🎯', SNIPER: '🔫', STREAK3: '🔥', EXPERT: '🧠', CHAMPION: '🔮', LEGEND: '👑',
 };
 
 async function load(): Promise<void> {

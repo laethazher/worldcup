@@ -90,12 +90,6 @@
 .pen-btn:hover { border-color: var(--line-strong); }
 .pen-btn:focus-visible { outline: none; box-shadow: var(--ring); }
 .pen-btn.on { border-color: var(--crimson); background: var(--crimson-soft); }
-.joker-row {
-  display: flex; align-items: center; justify-content: space-between; gap: var(--s-3);
-  padding: var(--s-3) var(--s-4); border-radius: var(--r-md);
-  background: linear-gradient(120deg, var(--gold-soft), transparent);
-  border: 1px solid var(--gold-line);
-}
 
 /* ═══ الترتيب ═══ */
 .board-list { display: grid; gap: 6px; margin-top: var(--s-5); }

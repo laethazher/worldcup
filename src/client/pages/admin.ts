@@ -103,9 +103,33 @@ function resultCard(m: MatchView, teams: { code: string; name_ar: string }[]): H
   c.append(el('div', { class: 'result-row' },
     face,
     el('div', { class: 'score-inline' }, h, el('b', {}, ':'), a, adv, saveBtn)));
-  c.append(el('div', {},
-    el('button', { class: 'btn btn-ghost btn-sm', onclick: () => showPredictions(m) }, '👁 توقعات الموظفين')));
+  const footer = el('div', { class: 'u-flex u-gap-2 u-wrap' },
+    el('button', { class: 'btn btn-ghost btn-sm', onclick: () => showPredictions(m) }, '👁 توقعات الموظفين'));
+  if (m.status === 'finished') {
+    footer.append(el('button', { class: 'btn btn-danger btn-sm', onclick: () => confirmReset(m) }, '↺ تصفير النتيجة'));
+  }
+  c.append(footer);
   return c;
+}
+
+/* ═══ تصفير نتيجة مباراة (لتصحيح إدخال خاطئ) — بتأكيد ═══ */
+function confirmReset(m: MatchView): void {
+  const go = el('button', { class: 'btn btn-danger' }, '↺ تأكيد التصفير') as HTMLButtonElement;
+  const close = openModal(el('div', { class: 'grid' },
+    el('h2', { style: 'font-size:var(--text-lg)' }, 'تصفير نتيجة المباراة؟'),
+    el('p', { class: 't-sm t-muted', style: 'direction:ltr;text-align:center;font-weight:700' },
+      `${m.home_name}  ${m.home_score} - ${m.away_score}  ${m.away_name}`),
+    el('p', { class: 't-sm t-muted' },
+      'تُحذف النتيجة وتعود المباراة «قيد الانتظار»، وتُلغى نقاط توقعاتها من الترتيب. تكدر تدخل النتيجة الصحيحة بعدها. الإجراء يُسجَّل في سجل التدقيق.'),
+    el('div', { class: 'u-flex u-gap-2 u-wrap', style: 'justify-content:flex-end' }, go)));
+  go.onclick = async () => {
+    go.classList.add('loading');
+    try {
+      await post(`/api/admin/matches/${m.id}/reset`, {});
+      toast('صُفّرت النتيجة وأُعيد الاحتساب ✓', 'ok');
+      close(); load();
+    } catch { go.classList.remove('loading'); }
+  };
 }
 
 /* ═══ عرض كل توقعات الموظفين لمباراة (مع بحث ونقاط وسبب الاحتساب) ═══ */
@@ -267,7 +291,7 @@ async function tabSettings(body: HTMLElement): Promise<void> {
   const num = (v: number, min = 0, max = 99) =>
     el('input', { class: 'input', type: 'number', value: String(v), min: String(min), max: String(max), dir: 'ltr', style: 'max-width:110px' }) as HTMLInputElement;
   const F = {
-    exact: num(c.exact), winner: num(c.winner), draw: num(c.draw), wrong: num(c.wrong),
+    exact: num(c.exact), winner: num(c.winner), wrong: num(c.wrong),
     qualification: num(c.qualification), champion_bonus: num(c.champion_bonus),
   };
   const STAGES: [string, string][] = [['R16', 'دور الـ16'], ['QF', 'ربع النهائي'], ['SF', 'نصف النهائي'], ['THIRD', 'البرونزية'], ['FINAL', 'النهائي']];
@@ -282,8 +306,9 @@ async function tabSettings(body: HTMLElement): Promise<void> {
     el('div', { class: 'card-title' }, el('h3', {}, '⚙️ محرك الاحتساب'),
       el('span', { class: 'chip' }, 'أي تعديل يعيد احتساب كل النقاط فوراً')),
     el('div', { class: 'grid', style: 'grid-template-columns:repeat(auto-fit,minmax(150px,1fr))' },
-      fld('النتيجة الدقيقة', F.exact), fld('الفائز الصحيح', F.winner),
-      fld('التعادل الصحيح', F.draw), fld('التوقع الخاطئ', F.wrong),
+      fld('النتيجة الدقيقة', F.exact),
+      fld('الاتجاه الصحيح', F.winner, 'فائز صحيح أو تعادل صحيح'),
+      fld('التوقع الخاطئ', F.wrong),
       fld('توقع المتأهل', F.qualification), fld('مكافأة البطل', F.champion_bonus)),
     el('div', { class: 'hr' }),
     el('h4', { class: 't-sm', style: 'margin-bottom:var(--s-3)' }, 'مضاعفات المراحل'),
