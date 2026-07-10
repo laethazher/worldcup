@@ -197,9 +197,17 @@ export function branchLeaderboard() {
 
 function snapshotRanks(board) {
   // recalcAll يلفّ العملية كلها بمعاملة واحدة، فنكتب مباشرة بلا معاملة داخلية (نتجنّب التداخل).
+  // إدراج دفعة واحدة (multi-row) بدل صف-صف: نفس البيانات بالضبط، لكن كتابة واحدة بدل ~عدد الموظفين
+  // (يقلّل زمن حجب حلقة الأحداث أثناء إعادة الاحتساب). نُقسّم تحسّباً لحد متغيّرات SQLite.
   db.prepare('DELETE FROM rank_snapshots').run();
-  const ins = db.prepare('INSERT INTO rank_snapshots(employee_id, rank) VALUES(?,?)');
-  for (const r of board) ins.run(r.id, r.rank);
+  const CHUNK = 400;
+  for (let i = 0; i < board.length; i += CHUNK) {
+    const slice = board.slice(i, i + CHUNK);
+    const ph = slice.map(() => '(?,?)').join(',');
+    const params = [];
+    for (const r of slice) { params.push(r.id, r.rank); }
+    db.prepare(`INSERT INTO rank_snapshots(employee_id, rank) VALUES ${ph}`).run(...params);
+  }
 }
 
 // ------------------------------------------------------------------ achievements

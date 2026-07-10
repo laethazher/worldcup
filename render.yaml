@@ -15,7 +15,8 @@ services:
     branch: main
     buildCommand: npm install --include=dev && npm run build
     startCommand: node server/ensure-seed.js && npm start
-    healthCheckPath: /login.html
+    # ملاحظة: أزلنا healthCheckPath عمداً → يستعمل Render فحص TCP الافتراضي (يقبل
+    # المنفذ حتى أثناء إعادة احتساب النقاط الثقيلة)، فلا يُقتل الخادم وسط الاحتساب.
     autoDeploy: true
     envVars:
       - key: NODE_ENV
