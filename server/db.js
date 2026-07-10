@@ -32,8 +32,10 @@ export const db = USING_TURSO
 /* ضمان الحفظ الدائم: نعلّم القاعدة عند أي كتابة (dirty) ونزامنها مع Turso
    بشكل مستمر. syncNow() متزامنة (blocking) فنستدعيها بأمان عند الإغلاق أيضاً. */
 let dirty = false;
+let syncSuspended = 0;   // >0 يعني معاملة قيد التنفيذ — نُعلّق المزامنة كي لا تكسر المعاملة
 export function syncNow() {
   if (!USING_TURSO) return;
+  if (syncSuspended > 0) { dirty = true; return; }   // لا تُزامن وسط معاملة مفتوحة، أجّلها
   try { db.sync(); dirty = false; }
   catch (e) { console.error('⚠ فشلت مزامنة Turso:', e.message); }
 }
@@ -87,6 +89,22 @@ for (const _p of ['journal_mode = WAL', 'foreign_keys = ON', 'busy_timeout = 500
   };
   const _exec = db.exec.bind(db);
   db.exec = (sql) => { const r = _exec(sql); dirty = true; return r; };
+
+  // إصلاح تعطّل الخادم على تورسو (Hrana): "cannot rollback - no transaction is active".
+  // في وضع النسخة المتزامنة، لو تخلّل db.sync() معاملةً مفتوحة (BEGIN..COMMIT) تُلغى المعاملة
+  // فيفشل COMMIT/ROLLBACK ويسقط الطلب (٥٠٠) وقد يدخل الخادم حلقة إعادة تشغيل (٥٠٢).
+  // الحل: تغليف db.transaction لتعليق المزامنة طوال المعاملة ثم استئنافها ومزامنة ما تراكم.
+  if (typeof db.transaction === 'function') {
+    const _transaction = db.transaction.bind(db);
+    db.transaction = (fn) => {
+      const wrapped = _transaction(fn);
+      return (...args) => {
+        syncSuspended++;
+        try { return wrapped(...args); }
+        finally { syncSuspended = Math.max(0, syncSuspended - 1); if (dirty) syncNow(); }
+      };
+    };
+  }
 }
 
 db.exec(`
