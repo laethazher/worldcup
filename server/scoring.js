@@ -27,12 +27,12 @@ export function scoreMatch(matchId) {
   const m = db.prepare('SELECT * FROM matches WHERE id = ?').get(matchId);
   if (!m || m.status !== 'finished') return;
   const R = RULES();
-  const preds = db.prepare('SELECT * FROM predictions WHERE match_id = ?').all(matchId);
-  const upd = db.prepare(`UPDATE predictions SET points_base=?, points_qual=?, points_total=?, is_exact=?, is_direction=?,
-                          calc_multiplier=?, calc_reason=?, calc_breakdown=? WHERE id=?`);
+  const preds = db.prepare('SELECT id, home_score, away_score, penalty_winner FROM predictions WHERE match_id = ?').all(matchId);
+  if (!preds.length) return;
 
   // النقاط ٥ / ٢ / ٠ فقط — بلا نقاط «متأهل» منفصلة.
   const matchIsDraw = m.home_score === m.away_score; // انتهت بالتعادل ⇒ حُسمت بركلات الترجيح
+  const rows = [];
   for (const p of preds) {
     let base, kind, isExact, isDir;
 
@@ -52,10 +52,26 @@ export function scoreMatch(matchId) {
       else if (predictedDraw) { base = R.winner; kind = 'تعادل صحيح'; isExact = 0; isDir = 1; }
       else                    { base = R.wrong;  kind = 'توقع خاطئ'; isExact = 0; isDir = 0; }
     }
-
-    // كتابة واحدة لكل توقّع (بدل اثنتين). points_qual ثابت ٠ (لا مكافأة متأهل)
-    upd.run(base, 0, base, isExact, isDir, 1, kind, JSON.stringify({ kind, base, total: base }), p.id);
+    rows.push({ id: p.id, base, ex: isExact, dir: isDir, kind, brk: JSON.stringify({ kind, base, total: base }) });
   }
+
+  // كتابة دفعة واحدة بدل UPDATE صف-صف: نُجهّز الحسابات في جدول مؤقت محلي (سريع، بلا شبكة)،
+  // ثم نحدّث كل توقعات المباراة بكتابة واحدة عن بُعد (UPDATE...FROM) — نفس النتائج تماماً.
+  db.exec('CREATE TEMP TABLE IF NOT EXISTS _score_tmp(id INTEGER PRIMARY KEY, base INT, ex INT, dir INT, reason TEXT, brk TEXT)');
+  db.prepare('DELETE FROM _score_tmp').run();
+  const CHUNK = 150;
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const slice = rows.slice(i, i + CHUNK);
+    const ph = slice.map(() => '(?,?,?,?,?,?)').join(',');
+    const params = [];
+    for (const r of slice) { params.push(r.id, r.base, r.ex, r.dir, r.kind, r.brk); }
+    db.prepare(`INSERT INTO _score_tmp(id,base,ex,dir,reason,brk) VALUES ${ph}`).run(...params);
+  }
+  db.prepare(`UPDATE predictions SET
+      points_base = _score_tmp.base, points_qual = 0, points_total = _score_tmp.base,
+      is_exact = _score_tmp.ex, is_direction = _score_tmp.dir, calc_multiplier = 1,
+      calc_reason = _score_tmp.reason, calc_breakdown = _score_tmp.brk
+      FROM _score_tmp WHERE _score_tmp.id = predictions.id`).run();
 }
 
 /** Full recalculation: all finished matches → achievements → rank snapshot. Returns { board, granted }.
@@ -292,11 +308,12 @@ export function computeAchievements() {
   const EMPTY = { exact:0, dir:0, scored:0, n_all:0, points:0, quals:0, qf:0, ghost:0, streak:0, accuracy:0 };
   // الإنجازات الممنوحة سابقاً: نتجنّب آلاف محاولات الإدراج الفارغة، ونمنح الجديد فقط (نفس النتيجة)
   const have = new Set(db.prepare('SELECT employee_id, code FROM achievements').all().map(r => r.employee_id + '|' + r.code));
+  // نجمع المنح الجديدة فقط (نفس الحُرّاس)، ونُدرجها دفعة واحدة في النهاية — بدل INSERT لكل منح.
   const give = (empId, code) => {
     const key = empId + '|' + code;
     if (have.has(key)) return;
-    const info = db.prepare('INSERT OR IGNORE INTO achievements(employee_id, code) VALUES(?,?)').run(empId, code);
-    if (info.changes) { granted.push({ employee_id: empId, code }); have.add(key); }
+    have.add(key);
+    granted.push({ employee_id: empId, code });
   };
 
   for (const e of emps) {
@@ -322,6 +339,15 @@ export function computeAchievements() {
   if (finalDone) {
     const top = leaderboardTopId();
     if (top) give(top, 'LEGEND');
+  }
+  // إدراج كل الإنجازات الجديدة دفعة واحدة (multi-row INSERT OR IGNORE) — نفس النتيجة، كتابة واحدة بدل المئات.
+  const CHUNK = 300;
+  for (let i = 0; i < granted.length; i += CHUNK) {
+    const slice = granted.slice(i, i + CHUNK);
+    const ph = slice.map(() => '(?,?)').join(',');
+    const params = [];
+    for (const g of slice) { params.push(g.employee_id, g.code); }
+    db.prepare(`INSERT OR IGNORE INTO achievements(employee_id, code) VALUES ${ph}`).run(...params);
   }
   return granted;
 }
