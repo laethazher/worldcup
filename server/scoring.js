@@ -55,23 +55,35 @@ export function scoreMatch(matchId) {
     rows.push({ id: p.id, base, ex: isExact, dir: isDir, kind, brk: JSON.stringify({ kind, base, total: base }) });
   }
 
-  // كتابة دفعة واحدة بدل UPDATE صف-صف: نُجهّز الحسابات في جدول مؤقت محلي (سريع، بلا شبكة)،
-  // ثم نحدّث كل توقعات المباراة بكتابة واحدة عن بُعد (UPDATE...FROM) — نفس النتائج تماماً.
-  db.exec('CREATE TEMP TABLE IF NOT EXISTS _score_tmp(id INTEGER PRIMARY KEY, base INT, ex INT, dir INT, reason TEXT, brk TEXT)');
-  db.prepare('DELETE FROM _score_tmp').run();
-  const CHUNK = 150;
+  // كتابة دفعات ذاتية الاحتواء (CASE WHEN) — بلا جدول مؤقت:
+  // على النسخة المتزامنة، معاملات الكتابة تُنفَّذ على خادم تورسو البعيد، والجداول المؤقتة
+  // محلية بالاتصال فلا توجد هناك (no such table) — لذا نبني UPDATE واحداً يحمل كل قيمه
+  // بداخله ويُحدّث حتى ١٠٠ توقع دفعةً. نفس نتائج صف-صف حرفياً (مُتحقَّق)، وبعدد جُمل قليل.
+  const CHUNK = 100;
   for (let i = 0; i < rows.length; i += CHUNK) {
     const slice = rows.slice(i, i + CHUNK);
-    const ph = slice.map(() => '(?,?,?,?,?,?)').join(',');
+    const ids = slice.map(r => r.id);
+    const cases = slice.map(() => 'WHEN ? THEN ?').join(' ');
+    const sql = `UPDATE predictions SET
+        points_base = CASE id ${cases} END,
+        points_qual = 0,
+        points_total = CASE id ${cases} END,
+        is_exact = CASE id ${cases} END,
+        is_direction = CASE id ${cases} END,
+        calc_multiplier = 1,
+        calc_reason = CASE id ${cases} END,
+        calc_breakdown = CASE id ${cases} END
+        WHERE id IN (${ids.map(() => '?').join(',')})`;
     const params = [];
-    for (const r of slice) { params.push(r.id, r.base, r.ex, r.dir, r.kind, r.brk); }
-    db.prepare(`INSERT INTO _score_tmp(id,base,ex,dir,reason,brk) VALUES ${ph}`).run(...params);
+    for (const r of slice) { params.push(r.id, r.base); }
+    for (const r of slice) { params.push(r.id, r.base); }
+    for (const r of slice) { params.push(r.id, r.ex); }
+    for (const r of slice) { params.push(r.id, r.dir); }
+    for (const r of slice) { params.push(r.id, r.kind); }
+    for (const r of slice) { params.push(r.id, r.brk); }
+    params.push(...ids);
+    db.prepare(sql).run(...params);
   }
-  db.prepare(`UPDATE predictions SET
-      points_base = _score_tmp.base, points_qual = 0, points_total = _score_tmp.base,
-      is_exact = _score_tmp.ex, is_direction = _score_tmp.dir, calc_multiplier = 1,
-      calc_reason = _score_tmp.reason, calc_breakdown = _score_tmp.brk
-      FROM _score_tmp WHERE _score_tmp.id = predictions.id`).run();
 }
 
 /** Full recalculation: all finished matches → achievements → rank snapshot. Returns { board, granted }.
