@@ -22,13 +22,13 @@ export function predictedAdvancer(pred, match) {
   return pred.penalty_winner || null;
 }
 
-/** Score every prediction of one finished match. */
-export function scoreMatch(matchId) {
+/** حساب صفوف النقاط لمباراة منتهية — قراءات فقط (تُخدَم من النسخة المحلية، بلا شبكة). */
+function computeScoreRows(matchId) {
   const m = db.prepare('SELECT * FROM matches WHERE id = ?').get(matchId);
-  if (!m || m.status !== 'finished') return;
+  if (!m || m.status !== 'finished') return [];
   const R = RULES();
   const preds = db.prepare('SELECT id, home_score, away_score, penalty_winner FROM predictions WHERE match_id = ?').all(matchId);
-  if (!preds.length) return;
+  if (!preds.length) return [];
 
   // النقاط ٥ / ٢ / ٠ فقط — بلا نقاط «متأهل» منفصلة.
   const matchIsDraw = m.home_score === m.away_score; // انتهت بالتعادل ⇒ حُسمت بركلات الترجيح
@@ -54,11 +54,13 @@ export function scoreMatch(matchId) {
     }
     rows.push({ id: p.id, base, ex: isExact, dir: isDir, kind, brk: JSON.stringify({ kind, base, total: base }) });
   }
+  return rows;
+}
 
-  // كتابة دفعات ذاتية الاحتواء (CASE WHEN) — بلا جدول مؤقت:
-  // على النسخة المتزامنة، معاملات الكتابة تُنفَّذ على خادم تورسو البعيد، والجداول المؤقتة
-  // محلية بالاتصال فلا توجد هناك (no such table) — لذا نبني UPDATE واحداً يحمل كل قيمه
-  // بداخله ويُحدّث حتى ١٠٠ توقع دفعةً. نفس نتائج صف-صف حرفياً (مُتحقَّق)، وبعدد جُمل قليل.
+/** كتابة صفوف النقاط — كتابات فقط، بدفعات ذاتية الاحتواء (CASE WHEN، بلا جدول مؤقت):
+ *  على النسخة المتزامنة تُنفَّذ الكتابات على خادم تورسو البعيد، والجداول المؤقتة محلية
+ *  بالاتصال فلا توجد هناك — لذا نبني UPDATE يحمل كل قيمه بداخله ويُحدّث حتى ١٠٠ توقع دفعةً. */
+function writeScoreRows(rows) {
   const CHUNK = 100;
   for (let i = 0; i < rows.length; i += CHUNK) {
     const slice = rows.slice(i, i + CHUNK);
@@ -86,18 +88,38 @@ export function scoreMatch(matchId) {
   }
 }
 
+/** Score every prediction of one finished match. */
+export function scoreMatch(matchId) {
+  writeScoreRows(computeScoreRows(matchId));
+}
+
 /** Full recalculation: all finished matches → achievements → rank snapshot. Returns { board, granted }.
- *  كل الكتابات داخل معاملة واحدة: ذرية (تكتمل كلها أو تتراجع كلها — لا حالة نصفية عند أي فشل)،
- *  ومزامنة تورسو تحصل مرة واحدة بعدها بدل عشرات المرات. */
+ *  البنية مصمّمة للنسخة المتزامنة مع تورسو: القراءات كلها خارج المعاملات (تُخدَم من النسخة
+ *  المحلية فوراً — القراءات داخل معاملة كتابة تُرسَل للخادم البعيد رحلةً لكل جملة)، وتبقى
+ *  الكتابات فقط داخل معاملتين قصيرتين:
+ *    ١) التصفير + تسجيل النقاط (ذرية معاً — لا حالة «مصفَّر بلا تسجيل» أبداً).
+ *    ٢) الإنجازات + لقطة الترتيب + سجل التشغيل (تُقرأ مدخلاتها محلياً بعد التزام الأولى
+ *       بفضل read-your-writes). لو تعطّلت الثانية لأي سبب، النقاط سليمة ملتزمة، وتكتمل
+ *       اللقطة/الإنجازات مع أي احتساب لاحق — لا فقدان ولا تلف. */
 export function recalcAll(ctx = {}) {
-  let board, granted;
+  // ── قراءات محلية (خارج أي معاملة): حساب نقاط كل المباريات المنتهية ──
+  const finished = db.prepare(`SELECT id FROM matches WHERE status='finished' ORDER BY kickoff_utc`).all();
+  const perMatchRows = finished.map(m => computeScoreRows(m.id)).filter(rows => rows.length);
+
+  // ── معاملة الكتابة ١: تصفير + تسجيل (كتابات فقط، ~جملة لكل ١٠٠ توقع) ──
   db.transaction(() => {
     db.prepare(`UPDATE predictions SET points_base=NULL, points_qual=NULL, points_total=NULL,
                 is_exact=NULL, is_direction=NULL, calc_multiplier=NULL, calc_reason=NULL, calc_breakdown=NULL`).run();
-    const finished = db.prepare(`SELECT id FROM matches WHERE status='finished' ORDER BY kickoff_utc`).all();
-    for (const m of finished) scoreMatch(m.id);
-    granted = computeAchievements();
-    board = leaderboard();
+    for (const rows of perMatchRows) writeScoreRows(rows);
+  })();
+
+  // ── قراءات محلية بعد الالتزام: read-your-writes يجعلها ترى النقاط الجديدة ──
+  const granted = computeAchievementGrants();
+  const board = leaderboard();
+
+  // ── معاملة الكتابة ٢: الإنجازات + اللقطة + سجل التشغيل ──
+  db.transaction(() => {
+    insertGrants(granted);
     snapshotRanks(board);
     db.prepare(`INSERT INTO scoring_runs(trigger_type, match_id, players, total_points, granted, actor_name)
                 VALUES(?,?,?,?,?,?)`)
@@ -300,7 +322,8 @@ export function achStats(empId) {
   return s;
 }
 
-export function computeAchievements() {
+/** حساب المنح الجديدة فقط — قراءات محلية بلا أي كتابة. الإدراج عبر insertGrants(). */
+function computeAchievementGrants() {
   const granted = [];
   const champ = championWinner();
   const finalDone = !!champ;
@@ -352,7 +375,11 @@ export function computeAchievements() {
     const top = leaderboardTopId();
     if (top) give(top, 'LEGEND');
   }
-  // إدراج كل الإنجازات الجديدة دفعة واحدة (multi-row INSERT OR IGNORE) — نفس النتيجة، كتابة واحدة بدل المئات.
+  return granted;
+}
+
+/** إدراج المنح دفعةً (multi-row INSERT OR IGNORE) — كتابات فقط، تُستدعى داخل معاملة الكتابة. */
+function insertGrants(granted) {
   const CHUNK = 300;
   for (let i = 0; i < granted.length; i += CHUNK) {
     const slice = granted.slice(i, i + CHUNK);
@@ -361,6 +388,12 @@ export function computeAchievements() {
     for (const g of slice) { params.push(g.employee_id, g.code); }
     db.prepare(`INSERT OR IGNORE INTO achievements(employee_id, code) VALUES ${ph}`).run(...params);
   }
+}
+
+/** توافقية: يحسب ويُدرج معاً (نفس سلوك الدالة القديمة لأي مستدعٍ خارجي). */
+export function computeAchievements() {
+  const granted = computeAchievementGrants();
+  insertGrants(granted);
   return granted;
 }
 
