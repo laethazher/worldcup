@@ -4,6 +4,7 @@ import { initials } from './format.js';
 import { onLive } from './sse.js';
 import { confettiBurst } from './confetti.js';
 import { themeToggle } from './theme.js';
+import { mountPageScene } from './ambient.js';
 
 export interface Me { id: number; name: string; username: string; role: string; department: string; branch: string; photo_url: string; champion_team?: string | null; }
 
@@ -19,6 +20,7 @@ const LINKS = [
 ];
 
 export async function initNav(): Promise<Me> {
+  mountPageScene();   // محرّك الخلفية المشترك — شدّات الصفحة الحالية من PRESETS
   const me = await get<Me>('/api/me');
   const host = document.getElementById('nav')!;
   const current = location.pathname === '/' ? '/index.html' : location.pathname;

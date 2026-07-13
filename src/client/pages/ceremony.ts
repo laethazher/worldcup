@@ -3,10 +3,10 @@ import { el, emptyState } from '../ui.js';
 import { initials, nf } from '../format.js';
 import { fireworks, confettiBurst } from '../confetti.js';
 import { themeToggle } from '../theme.js';
-import { mountScene, countUp } from '../ambient.js';
+import { mountPageScene, countUp } from '../ambient.js';
 
 document.body.append(themeToggle('theme-fab'));
-mountScene();   // المشهد المحيطي: طبقات نمط الهوية + الإضاءة السينمائية + الغبار الذهبي
+mountPageScene();   // محرّك الخلفية المشترك — إعداد صفحة الحفل من PRESETS
 
 interface CereRow { id: number; name: string; branch: string | null; department: string; photo_url: string; points: number; exact_count: number; accuracy: number; rank: number; achievements: string[]; }
 interface Cere { world_champion: { code: string; name: string } | null; podium: CereRow[]; hall_of_fame: CereRow[]; preview: boolean; }
@@ -36,7 +36,7 @@ function trophyStage(i: number): HTMLElement {
     // إن غاب الملف: نخفي المنصّة بأناقة بدل أيقونة صورة مكسورة
     onerror: (e: Event) => (e.target as HTMLElement).closest('.trophy-stage')?.classList.add('no-trophy'),
   });
-  return el('div', { class: 'trophy-stage cere-enter', 'aria-hidden': 'true', style: `--i:${i}` },
+  return el('div', { class: 'trophy-stage fx-enter', 'aria-hidden': 'true', style: `--i:${i}` },
     el('div', { class: 'trophy-ring' }),
     el('div', { class: 'trophy-shadow' }),
     el('div', { class: 'trophy' },
@@ -50,9 +50,9 @@ function trophyStage(i: number): HTMLElement {
 
 /* رأس الحفل: اللوغو + سطر تمهيدي مُزخرف + العنوان */
 function hero(kicker: string, title: string, ...extra: (HTMLElement | null)[]): HTMLElement {
-  return el('div', { class: 'cere-enter', style: '--i:0' },
+  return el('div', { class: 'fx-enter', style: '--i:0' },
     el('img', { class: 'cere-logo', src: '/assets/brand/logo.png', alt: 'الحسني هوم سنتر' }),
-    el('p', { class: 'cere-kicker' }, kicker),
+    el('p', { class: 'hero-kicker' }, kicker),
     el('h1', { class: 'cere-title' }, title),
     ...extra);
 }
@@ -66,7 +66,7 @@ function statsRow(d: Cere): HTMLElement {
     ['🎯', 'توقع دقيق للبطل', champ.exact_count, ''],
     ['📈', 'دقة البطل', Math.round(champ.accuracy), '٪'],
   ];
-  const row = el('div', { class: 'cere-stats cere-enter', style: '--i:2' });
+  const row = el('div', { class: 'cere-stats fx-enter', style: '--i:2' });
   for (const [ico, lbl, val, suffix] of cards) {
     const v = el('b', { class: 'stat-val num' }, nf.format(0));
     row.append(el('div', { class: 'stat-card' },
@@ -87,9 +87,9 @@ async function load(): Promise<void> {
     root.append(el('div', { class: 'ceremony' },
       hero('الحسني هوم سنتر', 'الحفل يُفتح بعد المباراة النهائية'),
       trophyStage(1),
-      el('p', { class: 'cere-note cere-enter', style: '--i:2' },
+      el('p', { class: 'cere-note fx-enter', style: '--i:2' },
         'حين تُسدَّد آخر صافرة في المونديال تُفتح هذه الأبواب، ويُتوَّج أبطال التوقعات على المنصّة الذهبية'),
-      el('div', { class: 'cere-actions cere-enter', style: '--i:3' },
+      el('div', { class: 'cere-actions fx-enter', style: '--i:3' },
         el('a', { class: 'btn btn-ghost', href: '/index.html' }, 'عودة للرئيسية'))));
     return;
   }
@@ -114,15 +114,15 @@ async function load(): Promise<void> {
         el('b', { class: 'champ-name', style: 'font-size:var(--text-lg)' }, d.world_champion.name)) : null),
     trophyStage(1),
     d.podium.length ? statsRow(d) : null,
-    d.podium.length ? el('div', { class: 'cere-podium cere-enter', style: '--i:3' }, ...pods) : emptyState({
+    d.podium.length ? el('div', { class: 'cere-podium fx-enter', style: '--i:3' }, ...pods) : emptyState({
       icon: '🎖', title: 'المنصّة بانتظار أبطالها',
       msg: 'حين تكتمل النتائج تُتوَّج المراكز الثلاثة الأولى هنا',
       action: { label: 'عرض الترتيب', href: '/leaderboard.html' },
     }),
-    d.podium[0] ? el('div', { class: 'cere-enter', style: '--i:4' },
+    d.podium[0] ? el('div', { class: 'fx-enter', style: '--i:4' },
       el('p', { class: 'cere-sub' }, 'بطل التحدي'),
       el('div', { class: 'champ-name' }, d.podium[0].name)) : null,
-    el('div', { class: 'cere-actions cere-enter', style: '--i:5' },
+    el('div', { class: 'cere-actions fx-enter', style: '--i:5' },
       el('button', { class: 'btn btn-primary', onclick: () => { document.documentElement.requestFullscreen?.(); fireworks(6000); } }, '🎬 وضع العرض للإدارة'),
       el('a', { class: 'btn btn-ghost', href: '/leaderboard.html' }, 'الترتيب الكامل')),
     hallOfFame(d.hall_of_fame)));

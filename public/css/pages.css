@@ -91,8 +91,57 @@
 .pen-btn:focus-visible { outline: none; box-shadow: var(--ring); }
 .pen-btn.on { border-color: var(--crimson); background: var(--crimson-soft); }
 
-/* ═══ الترتيب ═══ */
-.board-list { display: grid; gap: 6px; margin-top: var(--s-5); }
+/* ═══ الصدارة — مسرح المنافسة (لغة الحفل البصرية بنبرة تنافسية) ═══ */
+.lb-hero { text-align: center; display: grid; justify-items: center; gap: var(--s-2); margin-bottom: var(--s-6); }
+.lb-title { font-size: clamp(1.9rem, 4.4vw, 2.9rem); line-height: var(--lh-tight); letter-spacing: var(--ls-tight); }
+.lb-sub { color: var(--muted); font-size: var(--text-sm); }
+.lb-controls { display: flex; flex-wrap: wrap; gap: var(--s-3); align-items: center; justify-content: center; margin-top: var(--s-3); }
+
+.lb-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--s-4); margin-bottom: var(--s-5); }
+@media (max-width: 480px) { .lb-stats { grid-template-columns: repeat(2, 1fr); } }
+
+/* منصّة الصدارة: كشف متدرج (٣ ثم ٢ ثم ١) + وسام نابض — CSS خالص */
+.lb-podium { margin-block: var(--s-5); }
+.lb-podium .pod   { animation: t-rise var(--dur-4) var(--ease) both; }
+.lb-podium .pod-2 { animation-delay: 60ms; }
+.lb-podium .pod-3 { animation-delay: 140ms; }
+.lb-podium .pod-1 { animation-delay: 240ms; }
+.lb-podium .pod-1 .pod-medal { animation: medal-pop .9s var(--ease-spring) .5s both; }
+.lb-podium .pod-2 .pod-medal { animation: medal-pop .9s var(--ease-spring) .32s both; }
+.lb-podium .pod-3 .pod-medal { animation: medal-pop .9s var(--ease-spring) .4s both; }
+.lb-podium .pod-medal { display: inline-block; }
+/* بعد أول كشف (تحديث حي/ترقيم): المنصّة مستقرة — لا إعادة للمسرحية */
+.lb-podium.settled .pod, .lb-podium.settled .pod .pod-medal { animation: none; }
+
+/* لوح المنافسة: لوح زجاجي واحد يحتضن الصفوف (قراءة صافية فوق نمط الخلفية) */
+.board-list { display: grid; gap: 4px; margin-top: var(--s-5); padding: var(--s-2);
+  background: var(--card-bg); border: 1px solid var(--card-brd); border-radius: var(--r-lg);
+  backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur));
+  box-shadow: var(--shadow-1); }
+@media (hover: hover) {
+  /* لا نلمس حدّ البداية — شارة الميدالية وصبغة صفّك تبقيان أثناء التحويم */
+  .board-list .rank-row:hover { transform: translateY(-2px); background: var(--glass-hi);
+    border-block-color: var(--line); border-inline-end-color: var(--line); }
+}
+/* شارة المراكز الثلاثة — شريط زائف لا يزيح التخطيط (الصفوف كلها متراصفة) */
+.rank-row[data-top] { position: relative; }
+.rank-row[data-top]::before { content: ''; position: absolute; inset-block: 8px; inset-inline-start: 0;
+  width: 3px; border-radius: var(--r-pill); }
+.rank-row[data-top="1"]::before { background: var(--gold-line); }
+.rank-row[data-top="2"]::before { background: var(--silver-line); }
+.rank-row[data-top="3"]::before { background: var(--bronze-line); }
+
+/* صفّك: حدّ فاخر + توهج هادئ يومض مرتين ثم يستقر (opacity فقط — تركيب GPU) */
+.rank-me { position: relative; }
+.rank-me::after { content: ''; position: absolute; inset: -1px; border-radius: inherit; pointer-events: none;
+  box-shadow: 0 0 0 1px var(--crimson-line-hi), 0 10px 34px var(--crimson-glow);
+  opacity: .45; animation: me-pulse 3.2s ease-in-out .6s 2; }
+@keyframes me-pulse { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
+
+/* بطاقة ملخصك — إضاءة اعتزاز ثابتة */
+.my-summary { box-shadow: var(--shadow-glow); }
+
 .streak-fire { font-size: var(--text-xs); color: var(--color-warning-text); font-weight: var(--fw-bold); }
 
 /* ═══ الإدارة ═══ */

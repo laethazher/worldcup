@@ -1,73 +1,8 @@
 /* ════════════════════════════════════════════════════════════════════
    حفل التتويج — تجربة مسرحية فاخرة (يُحمَّل في ceremony.html حصراً)
+   محرّك الخلفية المشترك في css/scene.css — هنا أنماط الصفحة فقط.
    كل لون من tokens.css · كل حركة transform/opacity فقط (تركيب GPU)
-   طبقات العمق: نمط الهوية → إضاءة → غبار ذهبي → المحتوى → القصاصات (#fx)
    ════════════════════════════════════════════════════════════════════ */
-
-/* ─── ① المشهد: طبقات نمط المعيّنات — حركة «لوحة فندق فاخر» ─────────── */
-.scene { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
-
-/* غلاف الباراللاكس: يستهلك --plx-x/--plx-y من JS مضروبة بعمق الطبقة --d
-   (الخلفية 1px · الوسط 2px · الغبار 4px) — منفصل عن حركة الـkeyframes */
-.scene-plx {
-  position: absolute; inset: 0;
-  transform: translate3d(calc(var(--plx-x, 0) * var(--d, 0) * 1px),
-                         calc(var(--plx-y, 0) * var(--d, 0) * 1px), 0);
-}
-
-.scene-pattern {
-  position: absolute; inset: -8%;
-  background: var(--pattern-tile) repeat;
-}
-/* خمس مجموعات مستقلة — بطيئة حد اللاإدراك، بلا أي دوران للخلفية.
-   الطبقة الأولى مهيمنة وواضحة المعالم؛ البقية أخفت درجة كي لا تُطمس
-   معيّنات الهوية بتراكب المقاسات (وضوح بلا ضجيج بصري). */
-.sp-1 { background-size: 150px; animation: sc-drift-x 110s var(--ease) infinite alternate; }
-.sp-2 { background-size: 264px; opacity: .22; animation: sc-drift-y 85s ease-in-out infinite alternate; }
-.sp-3 { background-size: 92px;  opacity: .15; animation: sc-float 64s ease-in-out infinite alternate; }
-.sp-4 { background-size: 200px; animation: sc-breathe 30s ease-in-out infinite; }
-.sp-5 { background-size: 356px; opacity: .18; animation: sc-scale 96s ease-in-out infinite alternate; will-change: transform; }
-
-@keyframes sc-drift-x { from { transform: translate3d(-1.2%, 0, 0); } to { transform: translate3d(1.2%, 0, 0); } }
-@keyframes sc-drift-y { from { transform: translate3d(0, -1%, 0); }   to { transform: translate3d(0, 1%, 0); } }
-@keyframes sc-float   { from { transform: translate3d(-.6%, .5%, 0); } to { transform: translate3d(.6%, -.5%, 0); } }
-@keyframes sc-breathe { 0%, 100% { opacity: .08; } 50% { opacity: .22; } }
-@keyframes sc-scale   { from { transform: scale(1); } to { transform: scale(1.015); } }
-
-/* ─── ② الإضاءة السينمائية: بقعة ذهبية خلف الكأس + هالة قرمزية تتنفس ── */
-.scene-glow {
-  position: absolute; inset: 0;
-  background:
-    /* بقعة المسرح: متمركزة على الكأس في الإطار الأول — البطل تحت الضوء */
-    radial-gradient(54% 44% at 50% 40%, var(--cere-spot), transparent 70%),
-    radial-gradient(55% 30% at 50% -4%, var(--cere-halo), transparent 75%),
-    /* فينييت خفيف: الزوايا تنحسر فيتقدم المركز — تأطير سينمائي */
-    radial-gradient(130% 100% at 50% 30%, transparent 58%, var(--sheen-lo) 100%);
-  animation: sc-glow 11s ease-in-out infinite;
-}
-@keyframes sc-glow { 0%, 100% { opacity: .78; } 50% { opacity: 1; } }
-
-/* ─── ③ الغبار الذهبي العائم — أعماق وسرعات وضبابية عشوائية ─────────── */
-.scene-dust { position: absolute; inset: 0; }
-.mote {
-  position: absolute; top: 100%; display: block;
-  width: var(--psize); height: var(--psize); border-radius: 50%;
-  filter: blur(var(--pblur));
-  animation: mote-rise var(--pdur) linear var(--pdelay) infinite;
-}
-.mote-dust  { background: var(--warm); }
-.mote-gold  { background: var(--metal-gold); }
-.mote-white { background: var(--mote-bright); }
-.mote-glow  { background: var(--metal-gold-hi); box-shadow: 0 0 8px 2px var(--cere-spot); }
-@keyframes mote-rise {
-  0%   { opacity: 0; transform: translate3d(0, 0, 0); }
-  8%   { opacity: var(--pop); }
-  88%  { opacity: var(--pop); }
-  100% { opacity: 0; transform: translate3d(var(--psway), -112vh, 0); }
-}
-
-/* تجميد شامل عند إخفاء التبويب (يضبطه ambient.ts) */
-.fx-paused, .fx-paused * { animation-play-state: paused !important; }
 
 /* ─── ④ هيكل الصفحة ─────────────────────────────────────────────────── */
 .ceremony {
@@ -77,27 +12,14 @@
 }
 .cere-logo { height: 40px; width: auto; margin: 0 auto var(--s-4); opacity: .95; }
 
-/* الطباعة: تسلسل فخم — سطر تمهيدي مُزخرف ثم عنوان كبير ثم وصف */
-.cere-kicker {
-  display: flex; align-items: center; gap: var(--s-4); justify-content: center;
-  color: var(--warm); font-size: var(--text-xs); font-weight: var(--fw-semibold);
-  /* لا letter-spacing على العربية — يقطع اتصال الحروف؛ الفخامة عبر تباعد الكلمات */
-  letter-spacing: var(--ls-base); word-spacing: .3em;
-}
-.cere-kicker::before, .cere-kicker::after {
-  content: ''; width: clamp(34px, 8vw, 84px); height: 1px; flex: none;
-  background: linear-gradient(90deg, transparent, var(--gold-line));
-}
-.cere-kicker::after { background: linear-gradient(90deg, var(--gold-line), transparent); }
+/* السطر التمهيدي المزخرف .hero-kicker مشترك في components.css */
 .cere-title {
   font-size: clamp(2.1rem, 5.4vw, 3.7rem); line-height: var(--lh-tight);
   letter-spacing: var(--ls-tight); margin-top: var(--s-2);
 }
 .cere-sub { color: var(--warm); letter-spacing: var(--ls-base); word-spacing: .34em; font-size: var(--text-xs); font-weight: var(--fw-semibold); }
 .cere-note { color: var(--muted); font-size: var(--text-md); max-width: 46ch; line-height: var(--lh-loose); }
-
-/* دخول مسرحي متدرج للأقسام */
-.cere-enter { animation: t-rise var(--dur-4) var(--ease) both; animation-delay: calc(var(--i, 0) * 140ms); }
+/* الدخول المتدرج .fx-enter مشترك في scene.css */
 
 /* ─── ⑤ منصّة الكأس — النصب لا الأيقونة: مقياس بثّ عالمي ───────────────
    أبعاد صلبة (لا aspect-ratio): المحتوى لا يستطيع تمديد المنصّة إطلاقاً */
@@ -148,27 +70,11 @@
   95%           { opacity: .6; transform: scale(.85); }
 }
 
-/* ─── ⑥ بطاقات الإحصاء — زجاج فاخر + عدّادات متحركة ─────────────────── */
+/* ─── ⑥ عقد الإحصاء (بطاقة .stat-card المشتركة في components.css) ───── */
 .cere-stats {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: var(--s-4); width: min(780px, 100%);   /* عقد أضيق = بطاقات كالجواهر */
 }
-.stat-card {
-  display: grid; justify-items: center; gap: 6px; padding: var(--s-5) var(--s-4);
-  background: var(--card-bg); border: 1px solid var(--card-brd); border-radius: var(--r-md);
-  backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur));
-  box-shadow: var(--shadow-1);
-  transition: transform var(--dur-1) var(--ease), border-color var(--dur-1), box-shadow var(--dur-3) var(--ease);
-}
-@media (hover: hover) {
-  .stat-card:hover { transform: translateY(-3px); border-color: var(--gold-line); box-shadow: var(--shadow-gold); }
-}
-.stat-ico {
-  width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; font-size: 1.1rem;
-  background: var(--gold-soft); border: 1px solid var(--gold-line);
-}
-.stat-val { font-size: 1.7rem; font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; line-height: 1.1; }
-.stat-lbl { color: var(--muted); font-size: var(--text-xs); letter-spacing: var(--ls-wide); }
 
 /* ─── ⑦ الأزرار — عمق ولمعان محسوبان فوق منظومة الأزرار القائمة ──────── */
 .cere-actions { display: flex; gap: var(--s-3); justify-content: center; flex-wrap: wrap; }
@@ -197,8 +103,7 @@
 @keyframes pod-shine { from { transform: translateX(170%); } to { transform: translateX(-170%); } }
 
 .cere-pod .pod-medal { font-size: 1.5rem; }
-.cere-pod.show .pod-medal { animation: medal-pop .9s var(--ease-spring) .25s both; }
-@keyframes medal-pop { 0% { transform: scale(0) rotate(-14deg); } 62% { transform: scale(1.22) rotate(5deg); } 100% { transform: scale(1) rotate(0); } }
+.cere-pod.show .pod-medal { animation: medal-pop .9s var(--ease-spring) .25s both; }   /* medal-pop في tokens.css §18 */
 
 /* تاج المركز الأول — يصعد ويستقر ثم يطفو بلا توقف
    (top:5px + طفو -5px = لا يتجاوز حدود البطاقة أبداً — .pod تقصّ الفائض) */
@@ -287,14 +192,13 @@
 .crown-band { fill: var(--metal-gold-deep); }
 .crown-gem { fill: var(--crimson-hi); }
 
-/* ─── ⑬ تقليل الحركة والتباين القسري ────────────────────────────────── */
+/* ─── ⑬ تقليل الحركة والتباين القسري (قواعد المشهد المشتركة في scene.css) ── */
 @media (prefers-reduced-motion: reduce) {
-  .scene-dust, .trophy-ring::after, .spark, .trophy-sheen { display: none; }
+  .trophy-ring::after, .spark, .trophy-sheen { display: none; }
   .cere-pod { transition: none; }
   /* القاعدة العامة تصفّر المدة لا التأخير — بدون هذا تبقى البطاقات خاوية بطول تتابعها */
-  .cere-enter, .fof-card { animation-delay: 0s; }
+  .fof-card { animation-delay: 0s; }
 }
 @media (forced-colors: active) {
-  .stat-card, .fof-card { border: 1px solid CanvasText; }
-  .scene { display: none; }
+  .fof-card { border: 1px solid CanvasText; }
 }

@@ -1,0 +1,103 @@
+/* ════════════════════════════════════════════════════════════════════
+   محرّك الخلفية المشترك — Background Engine (يبنيه src/client/ambient.ts)
+   نمط معيّنات الهوية بطبقات متحركة + إضاءة سينمائية + فينييت + غبار ذهبي
+   + باراللاكس. يُحمَّل في كل صفحات التطبيق ويُضبط لكل صفحة عبر متغيرات
+   الشدة فقط (بلا أي تعديل على المحرّك):
+     --scene-pattern   شدة النمط        --scene-light   شدة الإضاءة
+     --scene-vignette  شدة الفينييت     (كثافة الغبار من إعدادات JS)
+   كل حركة transform/opacity حصراً — تركيب GPU، صفر إعادة تخطيط.
+   ════════════════════════════════════════════════════════════════════ */
+
+.scene { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+
+/* المشهد يحلّ محل توهّج body::before القديم — لا إضاءة مزدوجة */
+body:has(.scene)::before { display: none; }
+
+/* ─── محرّك الباراللاكس: غلاف يستهلك --plx-x/--plx-y × عمق الطبقة --d ─── */
+.scene-plx {
+  position: absolute; inset: 0;
+  transform: translate3d(calc(var(--plx-x, 0) * var(--d, 0) * 1px),
+                         calc(var(--plx-y, 0) * var(--d, 0) * 1px), 0);
+}
+
+/* ─── طبقات النمط: خمس مجموعات مستقلة بطيئة حد اللاإدراك، بلا دوران ────
+   الأولى مهيمنة واضحة المعالم؛ البقية أصداء عمق خافتة كي لا تتشوش المعيّنات */
+.scene-pattern {
+  position: absolute; inset: -8%;
+  background: var(--pattern-tile) repeat;
+}
+.sp-1 { background-size: 150px; opacity: var(--scene-pattern, 1);
+  animation: sc-drift-x 110s var(--ease) infinite alternate; }
+.sp-2 { background-size: 264px; opacity: calc(.22 * var(--scene-pattern, 1));
+  animation: sc-drift-y 85s ease-in-out infinite alternate; }
+.sp-3 { background-size: 92px;  opacity: calc(.15 * var(--scene-pattern, 1));
+  animation: sc-float 64s ease-in-out infinite alternate; }
+.sp-4 { background-size: 200px; animation: sc-breathe 30s ease-in-out infinite; }
+.sp-5 { background-size: 356px; opacity: calc(.18 * var(--scene-pattern, 1));
+  animation: sc-scale 96s ease-in-out infinite alternate; }
+
+/* هواتف صغيرة: ثلاث طبقات تكفي — نصف ذاكرة القوام المركّبة بلا فارق مرئي */
+@media (max-width: 480px) {
+  .sp-2, .sp-3, .sp-5 { display: none; }
+}
+
+@keyframes sc-drift-x { from { transform: translate3d(-1.2%, 0, 0); } to { transform: translate3d(1.2%, 0, 0); } }
+@keyframes sc-drift-y { from { transform: translate3d(0, -1%, 0); }   to { transform: translate3d(0, 1%, 0); } }
+@keyframes sc-float   { from { transform: translate3d(-.6%, .5%, 0); } to { transform: translate3d(.6%, -.5%, 0); } }
+@keyframes sc-breathe { 0%, 100% { opacity: calc(.08 * var(--scene-pattern, 1)); }
+                        50%      { opacity: calc(.22 * var(--scene-pattern, 1)); } }
+@keyframes sc-scale   { from { transform: scale(1); } to { transform: scale(1.015); } }
+
+/* ─── محرّك الإضاءة: بقعة ذهبية + هالة قرمزية تتنفسان ─────────────────── */
+.scene-glow {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(54% 44% at 50% 40%, var(--cere-spot), transparent 70%),
+    radial-gradient(55% 30% at 50% -4%, var(--cere-halo), transparent 75%);
+  animation: sc-glow 11s ease-in-out infinite;
+}
+@keyframes sc-glow { 0%, 100% { opacity: calc(.78 * var(--scene-light, 1)); }
+                     50%      { opacity: var(--scene-light, 1); } }
+
+/* الفينييت: الزوايا تنحسر فيتقدم المركز — شدته مستقلة عن الإضاءة */
+.scene-vignette {
+  position: absolute; inset: 0;
+  background: radial-gradient(130% 100% at 50% 30%, transparent 58%, var(--sheen-lo) 100%);
+  opacity: var(--scene-vignette, 1);
+}
+
+/* ─── محرّك الحبيبات: غبار ذهبي عائم بأعماق وسرعات عشوائية ─────────────── */
+.scene-dust { position: absolute; inset: 0; }
+.mote {
+  position: absolute; top: 100%; display: block;
+  width: var(--psize); height: var(--psize); border-radius: 50%;
+  filter: blur(var(--pblur));
+  animation: mote-rise var(--pdur) linear var(--pdelay) infinite;
+}
+.mote-dust  { background: var(--warm); }
+.mote-gold  { background: var(--metal-gold); }
+.mote-white { background: var(--mote-bright); }
+.mote-glow  { background: var(--metal-gold-hi); box-shadow: 0 0 8px 2px var(--cere-spot); }
+@keyframes mote-rise {
+  0%   { opacity: 0; transform: translate3d(0, 0, 0); }
+  8%   { opacity: var(--pop); }
+  88%  { opacity: var(--pop); }
+  100% { opacity: 0; transform: translate3d(var(--psway), -112vh, 0); }
+}
+
+/* تجميد شامل عند إخفاء التبويب (يضبطه المحرّك) */
+.fx-paused, .fx-paused * { animation-play-state: paused !important; }
+
+/* ─── أدوات الحركة المشتركة ───────────────────────────────────────────── */
+/* دخول مسرحي متدرج — عيّن --i لترتيب الظهور */
+.fx-enter { animation: t-rise var(--dur-4) var(--ease) both; animation-delay: calc(var(--i, 0) * 140ms); }
+
+/* ─── تقليل الحركة والتباين القسري ────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .scene-dust { display: none; }
+  /* القاعدة العامة تصفّر المدد لا التأخيرات — المحتوى يظهر فوراً */
+  .fx-enter { animation-delay: 0s; }
+}
+@media (forced-colors: active) {
+  .scene { display: none; }
+}

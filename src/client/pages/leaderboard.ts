@@ -3,6 +3,7 @@ import { el, emptyState, skeletonBoard } from '../ui.js';
 import { initials, nf } from '../format.js';
 import { initNav, Me } from '../nav.js';
 import { onLive } from '../sse.js';
+import { countUp, reducedMotion } from '../ambient.js';
 
 interface Row {
   prev_rank: number | null;
@@ -20,36 +21,51 @@ const prevTops = new Map<string, number>();
 let me: Me;
 let tab: 'emp' | 'branch' | 'dept' | 'admins' = 'emp';
 
-async function load(): Promise<void> {
-  main.innerHTML = '';
-  main.append(el('div', { class: 'rise', style: 'display:flex;flex-wrap:wrap;gap:16px;align-items:end;justify-content:space-between;margin-bottom:22px' },
-    el('div', {},
-      el('p', { class: 'eyebrow' }, 'المنافسة حيّة'),
-      el('h1', { style: 'font-size:var(--text-xl)' }, 'جدول الصدارة'),
-      el('a', { href: '/hall.html', class: 'chip gold', style: 'text-decoration:none;margin-top:6px;display:inline-block' }, '🏛 قاعة المجد')),
-    el('div', { class: 'tabs' },
-      tabBtn('الموظفون', 'emp'),
-      tabBtn('الفروع', 'branch'),
-      tabBtn('العناوين الوظيفية', 'dept'),
-      tabBtn('الإدارة', 'admins'))));
+/* عدّاد أجيال: الخادم يبثّ 'match_result' و'leaderboard' لنفس الحدث —
+   بدون هذا الحارس يتسابق تحميلان ويُبنى المحتوى مرتين. الأحدث وحده يرسم. */
+let gen = 0;
+/* بعد أول رسم كامل: الأرقام تُكتب مباشرة (بلا عدّ) والدخول المسرحي لا يُعاد */
+let boardRevealed = false;
+function animNum(node: HTMLElement, val: number, fmt: (n: number) => string): void {
+  if (boardRevealed) node.textContent = fmt(val);
+  else countUp(node, val, fmt);
+}
 
-  if (tab === 'emp') await renderEmployees();
-  else if (tab === 'branch') await renderBranches();
-  else if (tab === 'dept') await renderDepartments();
-  else await renderAdmins();
+async function load(): Promise<void> {
+  const g = ++gen;
+  main.innerHTML = '';
+  // رأس بطولي — لغة الحفل البصرية بنبرة تنافسية (الوظيفة كما هي: تبويبات + قاعة المجد)
+  main.append(el('header', { class: `lb-hero${boardRevealed ? '' : ' fx-enter'}` },
+    el('p', { class: 'hero-kicker' }, 'المنافسة حيّة'),
+    el('h1', { class: 'lb-title' }, 'جدول الصدارة'),
+    el('p', { class: 'lb-sub' }, 'سباق توقعات المونديال — الدقة وحدها تصنع المجد'),
+    el('div', { class: 'lb-controls' },
+      el('div', { class: 'tabs' },
+        tabBtn('الموظفون', 'emp'),
+        tabBtn('الفروع', 'branch'),
+        tabBtn('العناوين الوظيفية', 'dept'),
+        tabBtn('الإدارة', 'admins')),
+      el('a', { href: '/hall.html', class: 'chip gold', style: 'text-decoration:none' }, '🏛 قاعة المجد'))));
+
+  if (tab === 'emp') await renderEmployees(g);
+  else if (tab === 'branch') await renderBranches(g);
+  else if (tab === 'dept') await renderDepartments(g);
+  else await renderAdmins(g);
+  boardRevealed = true;
 }
 
 function tabBtn(label: string, key: typeof tab): HTMLElement {
   return el('button', { class: `tab ${tab === key ? 'on' : ''}`, onclick: () => { tab = key; load(); } }, label);
 }
 
-async function renderEmployees(): Promise<void> {
+async function renderEmployees(g: number): Promise<void> {
   document.querySelectorAll<HTMLElement>('.rank-row[data-emp]').forEach(r =>
     prevTops.set(r.dataset.emp!, r.getBoundingClientRect().top));
   const first = !document.querySelector('.board-list');
   const holder = el('section', { class: 'rise-2' }, skeletonBoard(8));
   if (first) main.append(holder);
   const fetched = await get<Row[]>('/api/leaderboard');
+  if (g !== gen) return;   // تحميل أحدث سبقنا — لا نرسم فوقه
   holder.remove();
   lastFullBoard = fetched;
   if (!fetched.length) {
@@ -61,20 +77,25 @@ async function renderEmployees(): Promise<void> {
     return;
   }
 
+  statsBand(fetched);
   renderSummary(fetched);
   const rows = applyView(fetched);
   const pristine = !view.q && !view.branch && !view.dept && view.sort === 'rank' && view.page === 1;
   const top3 = pristine ? fetched.slice(0, 3) : [];
   const medals = ['🥇', '🥈', '🥉'];
+  const medalNames = ['المركز الأول', 'المركز الثاني', 'المركز الثالث'];
   if (top3.length === 3) {
-    main.append(el('section', { class: 'podium rise-2' }, ...top3.map((r, i) =>
-      el('div', { class: `pod pod-${i + 1}` },
-        el('span', { class: 'pod-medal' }, medals[i]),
+    main.append(el('section', { class: `podium lb-podium${boardRevealed ? ' settled' : ''}` }, ...top3.map((r, i) => {
+      const pts = el('div', { class: 'pod-pts num' }, nf.format(0));
+      animNum(pts, r.points, n => nf.format(n));
+      return el('div', { class: `pod pod-${i + 1}`, role: 'group', 'aria-label': `${medalNames[i]} — ${r.name}` },
+        el('span', { class: 'pod-medal', 'aria-hidden': 'true' }, medals[i]),
         avatar(r),
         el('b', { style: 'display:block' }, r.name),
         el('small', { style: 'color:var(--muted)' }, r.branch || ''),
-        el('div', { class: 'pod-pts num' }, nf.format(r.points)),
-        el('small', { style: 'color:var(--muted)' }, `${nf.format(r.exact_count)} دقيقة · ${nf.format(r.accuracy)}٪`)))));
+        pts,
+        el('small', { style: 'color:var(--muted)' }, `${nf.format(r.exact_count)} دقيقة · ${nf.format(r.accuracy)}٪`));
+    })));
   }
 
   main.append(boardToolbar(fetched));
@@ -89,7 +110,9 @@ async function renderEmployees(): Promise<void> {
     const deltaEl = r.delta > 0 ? el('span', { class: 'delta up' }, `▲ ${nf.format(r.delta)}`)
       : r.delta < 0 ? el('span', { class: 'delta down' }, `▼ ${nf.format(-r.delta)}`)
       : el('span', { class: 'delta same' }, '—');
-    list.append(el('div', { class: `rank-row ${r.id === me.id ? 'rank-me' : ''}`, dataset: { emp: String(r.id) } },
+    const ds: Record<string, string> = { emp: String(r.id) };
+    if (r.rank <= 3) ds.top = String(r.rank);   // شارة لونية للمراكز الثلاثة (بيانات حقيقية)
+    list.append(el('div', { class: `rank-row ${r.id === me.id ? 'rank-me' : ''}`, dataset: ds },
       el('span', { class: 'rank-no num', title: r.prev_rank ? `الترتيب السابق: #${nf.format(r.prev_rank)}` : 'أول ظهور' }, nf.format(r.rank)),
       avatar(r),
       el('div', { style: 'min-width:0' },
@@ -109,6 +132,19 @@ async function renderEmployees(): Promise<void> {
   }
   main.append(list, boardPager(paged));
 
+  // تمرير تلقائي أنيق إلى صفّك — يُستهلك فقط حين يظهر صفّك فعلاً
+  // (قد يكون بصفحة لاحقة من الترقيم؛ نبقي الفرصة حتى يُعرض)
+  if (!scrolledToMe) {
+    const mine = list.querySelector<HTMLElement>('.rank-me');
+    if (mine) {
+      scrolledToMe = true;
+      const box = mine.getBoundingClientRect();
+      if (box.top > innerHeight * .92 || box.bottom < 0) {
+        mine.scrollIntoView({ block: 'center', behavior: reducedMotion() ? 'auto' : 'smooth' });
+      }
+    }
+  }
+
   // FLIP: انزلاق ناعم من المركز القديم إلى الجديد عند التحديث الحي
   requestAnimationFrame(() => {
     list.querySelectorAll<HTMLElement>('.rank-row[data-emp]').forEach(r => {
@@ -123,6 +159,30 @@ async function renderEmployees(): Promise<void> {
   });
 }
 
+let scrolledToMe = false;
+
+/* ─── عقد الإحصاء التنافسي — أرقام مشتقة حصراً من لوحة ‎/api/leaderboard كما وصلت ─── */
+function statsBand(rows: Row[]): void {
+  const totalExact = rows.reduce((s, r) => s + r.exact_count, 0);
+  const avgAcc = Math.round(rows.reduce((s, r) => s + r.accuracy, 0) / rows.length);
+  const cards: Array<[string, string, number, string]> = [
+    ['👥', 'مشاركاً في السباق', rows.length, ''],
+    ['⭐', 'نقاط المتصدر', rows[0].points, ''],
+    ['🎯', 'توقعاً دقيقاً', totalExact, ''],
+    ['📈', 'متوسط الدقة', avgAcc, '٪'],
+  ];
+  const band = el('section', { class: `lb-stats${boardRevealed ? '' : ' fx-enter'}`, style: '--i:1' });
+  for (const [ico, lbl, val, suffix] of cards) {
+    const v = el('b', { class: 'stat-val num' }, nf.format(0));
+    band.append(el('div', { class: 'stat-card' },
+      el('span', { class: 'stat-ico', 'aria-hidden': 'true' }, ico),
+      v,
+      el('span', { class: 'stat-lbl' }, lbl)));
+    animNum(v, val, n => nf.format(n) + suffix);
+  }
+  main.append(band);
+}
+
 /* ─── ملخصك: ترتيبك · الفارق أمامك وخلفك · تقدمك نحو الصدارة ─── */
 function renderSummary(rows: Row[]): void {
   const i = rows.findIndex(r => r.id === me.id);
@@ -132,6 +192,8 @@ function renderSummary(rows: Row[]): void {
   const below = i < rows.length - 1 ? rows[i + 1] : null;
   const leader = rows[0];
   const prog = leader.points > 0 ? Math.min(100, Math.round((r.points / leader.points) * 100)) : 0;
+  const myPts = el('b', { class: 'num' }, nf.format(0));
+  animNum(myPts, r.points, n => nf.format(n));
 
   main.append(el('section', { class: 'card card-hero rise-2 my-summary' },
     el('div', { class: 'u-between u-wrap u-gap-3' },
@@ -142,7 +204,7 @@ function renderSummary(rows: Row[]): void {
           r.prev_rank && r.prev_rank !== r.rank
             ? el('span', { class: `delta ${r.delta > 0 ? 'up' : 'down'}`, style: 'margin-inline-start:8px' },
                 `${r.delta > 0 ? '▲' : '▼'} كنت #${nf.format(r.prev_rank)}`) : null)),
-      el('div', { class: 'stat', style: 'text-align:end' }, el('b', { class: 'num' }, nf.format(r.points)), el('span', {}, 'نقاطك'))),
+      el('div', { class: 'stat', style: 'text-align:end' }, myPts, el('span', {}, 'نقاطك'))),
     el('div', { class: 'row-meta', style: 'margin-top:var(--s-3)' },
       above
         ? el('span', { class: 'meta-chip' }, `⬆ يفصلك ${nf.format(above.points - r.points)} عن ${above.name} (#${nf.format(above.rank)})`)
@@ -185,10 +247,11 @@ function paginate(rows: Row[]): { slice: Row[]; total: number; page: number; pag
 
 function boardToolbar(all: Row[]): HTMLElement {
   let deb = 0;
-  const search = el('input', { class: 'input users-search', placeholder: '🔍 بحث بالاسم', value: view.q }) as HTMLInputElement;
+  const search = el('input', { class: 'input users-search', placeholder: '🔍 بحث بالاسم',
+    'aria-label': 'بحث بالاسم', value: view.q }) as HTMLInputElement;
   search.oninput = () => { clearTimeout(deb); deb = setTimeout(() => { view.q = search.value; view.page = 1; load(); }, 300) as unknown as number; };
-  const sel = (opts: [string, string][], val: string, on: (v: string) => void) => {
-    const x = el('select', { class: 'input users-sel' },
+  const sel = (label: string, opts: [string, string][], val: string, on: (v: string) => void) => {
+    const x = el('select', { class: 'input users-sel', 'aria-label': label },
       ...opts.map(([v, l]) => el('option', { value: v, selected: val === v ? '' : null }, l))) as HTMLSelectElement;
     x.onchange = () => { on(x.value); view.page = 1; load(); };
     return x;
@@ -197,13 +260,13 @@ function boardToolbar(all: Row[]): HTMLElement {
   const depts = [...new Set(all.map(r => r.department).filter(Boolean))] as string[];
   return el('div', { class: 'card card-compact users-toolbar rise-3', style: 'margin-bottom:var(--s-3)' },
     search,
-    sel([['', 'كل الفروع'], ...branches.map(b => [b, b] as [string, string])], view.branch, v => view.branch = v),
-    sel([['', 'كل العناوين الوظيفية'], ...depts.map(d => [d, d] as [string, string])], view.dept, v => view.dept = v),
-    sel([['rank', 'فرز: الترتيب'], ['points', 'فرز: النقاط'], ['exact', 'فرز: الدقيقة'], ['accuracy', 'فرز: الدقة'], ['name', 'فرز: الاسم']], view.sort, v => view.sort = v));
+    sel('تصفية حسب الفرع', [['', 'كل الفروع'], ...branches.map(b => [b, b] as [string, string])], view.branch, v => view.branch = v),
+    sel('تصفية حسب العنوان الوظيفي', [['', 'كل العناوين الوظيفية'], ...depts.map(d => [d, d] as [string, string])], view.dept, v => view.dept = v),
+    sel('فرز اللوحة', [['rank', 'فرز: الترتيب'], ['points', 'فرز: النقاط'], ['exact', 'فرز: الدقيقة'], ['accuracy', 'فرز: الدقة'], ['name', 'فرز: الاسم']], view.sort, v => view.sort = v));
 }
 
 function boardPager(p: { total: number; page: number; pages: number }): HTMLElement {
-  const per = el('select', { class: 'input users-sel' },
+  const per = el('select', { class: 'input users-sel', 'aria-label': 'عدد الصفوف بالصفحة' },
     ...[10, 25, 50].map(n => el('option', { value: String(n), selected: view.per === n ? '' : null }, `${n} / صفحة`))) as HTMLSelectElement;
   per.onchange = () => { view.per = Number(per.value); view.page = 1; load(); };
   return el('div', { class: 'pager rise-3', style: 'margin-top:var(--s-3)' },
@@ -216,10 +279,11 @@ function boardPager(p: { total: number; page: number; pages: number }): HTMLElem
 
 /* ─── لوحة الأقسام ─── */
 interface DeptRow { rank: number; label: string; points: number; members: number; exact: number; avg: number; }
-async function renderDepartments(): Promise<void> {
+async function renderDepartments(g: number): Promise<void> {
   const holder = el('section', { class: 'rise-2' }, skeletonBoard(5));
   main.append(holder);
   const rows = await get<DeptRow[]>('/api/leaderboard/departments');
+  if (g !== gen) return;
   holder.remove();
   if (!rows.length) {
     main.append(el('div', { class: 'card rise-2' }, emptyState({
@@ -239,8 +303,9 @@ async function renderDepartments(): Promise<void> {
 }
 
 /* ─── لوحة الإدارة (حيث ينطبق — منفصلة عن سباق الموظفين) ─── */
-async function renderAdmins(): Promise<void> {
+async function renderAdmins(g: number): Promise<void> {
   const rows = await get<Row[]>('/api/leaderboard/admins');
+  if (g !== gen) return;
   if (!rows.length || rows.every(r => !r.scored_count && !r.points)) {
     main.append(el('div', { class: 'card rise-2' }, emptyState({
       icon: '🛡', title: 'الإدارة خارج السباق حالياً',
@@ -263,11 +328,12 @@ async function renderAdmins(): Promise<void> {
   main.append(list);
 }
 
-async function renderBranches(): Promise<void> {
+async function renderBranches(g: number): Promise<void> {
   const first = !document.querySelector('.bars');
   const holder = el('section', { class: 'rise-2' }, skeletonBoard(5));
   if (first) main.append(holder);
   const rows = await get<BranchRow[]>('/api/leaderboard/branches');
+  if (g !== gen) return;
   holder.remove();
   if (!rows.length) {
     main.append(el('div', { class: 'card rise-2' }, emptyState({
