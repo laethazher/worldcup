@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell($conn = Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue; if \\($conn\\) { $conn | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -Confirm:$false }; \"killed\" } else { \"not listening\" })",
+      "Bash(curl -s -o /dev/null -m 2 -w \"%{http_code}\" http://localhost:3000/login.html)",
+      "Bash(python -)",
+      "Bash(grep -rnEi \"style[^\\\\\"']*['\\\\\"\\\\`][^'\\\\\"\\\\`]*\\(white|black|silver|gray|maroon|red\\\\b|yellow|lime|green|aqua|teal|blue|navy|fuchsia|purple|orange\\)\" src/client --include='*.ts')"
+    ]
+  }
+}

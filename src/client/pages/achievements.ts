@@ -84,7 +84,7 @@ function card(a: Item): HTMLElement {
           a.hidden ? el('span', { class: 'chip', style: 'font-size:.62rem' }, 'كان خفياً 👁') : null),
         el('p', { class: 't-xs t-muted', style: 'margin:4px 0 0' }, a.desc),
         a.unlocked
-          ? el('div', { class: 't-xs num', style: 'margin-top:8px;color:var(--gold)' },
+          ? el('div', { class: 't-xs num', style: 'margin-top:8px;color:var(--gold-hi)' },
               `✓ فُتح ${a.awarded_at ? dateTimeFull(a.awarded_at) : ''}`)
           : a.progress
             ? el('div', { style: 'margin-top:8px' },

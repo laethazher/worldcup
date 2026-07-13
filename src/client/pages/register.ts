@@ -1,4 +1,7 @@
 import { get, post } from '../api.js';
+import { themeToggle } from '../theme.js';
+
+document.body.append(themeToggle('theme-fab'));
 
 interface Options { enabled: boolean; branch: string; titles: string[] }
 

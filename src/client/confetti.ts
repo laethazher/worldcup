@@ -1,6 +1,13 @@
 interface P { x: number; y: number; vx: number; vy: number; size: number; color: string; life: number; max: number; shape: 0 | 1; rot: number; vr: number; }
 
-const COLORS = ['#C82A3E', '#E3C766', '#F5F1EE', '#9E8D87', '#C9A227'];
+/* لوحتا قصاصات من عائلات الهوية — الفاتحة تستبدل الفاتح-الكريمي (غير المرئي
+   على خلفية فاتحة) بدرجات أعمق من نفس العائلات */
+const PALETTES = {
+  dark: ['#C82A3E', '#E3C766', '#F5F1EE', '#9E8D87', '#C9A227'],
+  light: ['#A51E2F', '#6E1220', '#9C7B14', '#75655C', '#C9A227'],
+};
+const COLORS = (): readonly string[] =>
+  PALETTES[document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark'];
 let canvas: HTMLCanvasElement | null = null;
 let ctx: CanvasRenderingContext2D | null = null;
 let parts: P[] = [];
@@ -43,12 +50,13 @@ function loop(): void {
 function spawn(n: number, x: number, y: number, spread: number, power: number): void {
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   ensure();
+  const palette = COLORS();
   for (let i = 0; i < n; i++) {
     const ang = (Math.random() - 0.5) * spread - Math.PI / 2;
     const v = power * (0.5 + Math.random());
     parts.push({
       x, y, vx: Math.cos(ang) * v, vy: Math.sin(ang) * v,
-      size: 5 + Math.random() * 6, color: COLORS[Math.floor(Math.random() * COLORS.length)],
+      size: 5 + Math.random() * 6, color: palette[Math.floor(Math.random() * palette.length)],
       life: 0, max: 70 + Math.random() * 50, shape: Math.random() > 0.5 ? 0 : 1,
       rot: Math.random() * 6, vr: (Math.random() - 0.5) * 0.3,
     });

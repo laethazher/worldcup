@@ -1,4 +1,7 @@
 import { post } from '../api.js';
+import { themeToggle } from '../theme.js';
+
+document.body.append(themeToggle('theme-fab'));
 
 const form = document.getElementById('login-form') as HTMLFormElement;
 const user = document.getElementById('u') as HTMLInputElement;

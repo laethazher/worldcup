@@ -2,6 +2,9 @@ import { get } from '../api.js';
 import { el, emptyState } from '../ui.js';
 import { initials, nf } from '../format.js';
 import { fireworks, confettiBurst } from '../confetti.js';
+import { themeToggle } from '../theme.js';
+
+document.body.append(themeToggle('theme-fab'));
 
 interface CereRow { id: number; name: string; branch: string | null; department: string; photo_url: string; points: number; exact_count: number; accuracy: number; rank: number; achievements: string[]; }
 interface Cere { world_champion: { code: string; name: string } | null; podium: CereRow[]; hall_of_fame: CereRow[]; preview: boolean; }

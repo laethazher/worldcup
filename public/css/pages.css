@@ -130,7 +130,7 @@
 .pod-2 .pod-block { height: 42px; background: var(--grad-silver); }
 .pod-3 .pod-block { height: 26px; background: var(--grad-bronze); }
 .champ-name { font-size: clamp(1.4rem, 3.6vw, 2.3rem); font-weight: var(--fw-bold);
-  background: linear-gradient(120deg, var(--gold-hi), var(--ink-max) 50%, var(--gold-hi));
+  background: var(--grad-champ);
   background-size: 220% auto; -webkit-background-clip: text; background-clip: text; color: transparent;
   animation: sheen var(--dur-sheen) linear infinite; }
 @keyframes sheen { to { background-position: -220% center; } }
@@ -243,8 +243,8 @@
 .r-epic { border-inline-start-color: var(--crimson); }
 .r-legendary { border-inline-start-color: var(--gold); }
 .chip.r-rare { color: var(--info); border-color: color-mix(in srgb, var(--info) 45%, transparent); }
-.chip.r-epic { color: var(--crimson-soft); border-color: var(--crimson-line); }
-.chip.r-legendary { color: var(--gold); border-color: color-mix(in srgb, var(--gold) 45%, transparent); }
+.chip.r-epic { color: var(--crimson-text); border-color: var(--crimson-line); }
+.chip.r-legendary { color: var(--gold-hi); border-color: color-mix(in srgb, var(--gold) 45%, transparent); }
 .ach-open.r-legendary { box-shadow: 0 0 0 1px color-mix(in srgb, var(--gold) 30%, transparent), var(--shadow-1); }
 
 /* ═══ قاعة المجد — 3.10 ═══ */

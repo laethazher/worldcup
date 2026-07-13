@@ -3,6 +3,7 @@ import { el, toast } from './ui.js';
 import { initials } from './format.js';
 import { onLive } from './sse.js';
 import { confettiBurst } from './confetti.js';
+import { themeToggle } from './theme.js';
 
 export interface Me { id: number; name: string; username: string; role: string; department: string; branch: string; photo_url: string; champion_team?: string | null; }
 
@@ -39,6 +40,7 @@ export async function initNav(): Promise<Me> {
         el('span', { class: 'brand-app' }, 'تحدي كأس العالم', el('small', {}, '٢٠٢٦'))),
       el('nav', { class: 'nav-links', 'aria-label': 'التنقل الرئيسي' }, ...links),
       el('div', { class: 'nav-side' },
+        themeToggle(),
         bellLink(),
         el('button', { class: 'btn btn-ghost btn-sm', onclick: logout }, 'خروج'),
         el('a', { href: '/profile.html', 'aria-label': 'الملف الشخصي' }, avatar))));

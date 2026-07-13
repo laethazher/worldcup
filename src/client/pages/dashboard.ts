@@ -129,7 +129,7 @@ async function load(): Promise<void> {
       unread.length ? el('span', { class: 'chip crimson' }, nf.format(unread.length)) : null));
   if (d.notifications.length) {
     for (const n of d.notifications) {
-      nc.append(el('div', { style: `padding:10px 2px;border-bottom:1px solid rgba(158,141,135,.09);${n.read ? 'opacity:.65' : ''}` },
+      nc.append(el('div', { style: `padding:10px 2px;border-bottom:1px solid var(--table-row-brd);${n.read ? 'opacity:.65' : ''}` },
         el('b', { style: 'font-size:var(--text-sm);display:block' }, n.title),
         n.body ? el('span', { style: 'font-size:var(--text-xs);color:var(--muted)' }, n.body) : null));
     }
