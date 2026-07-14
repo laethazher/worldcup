@@ -96,12 +96,27 @@ for (const _p of ['journal_mode = WAL', 'foreign_keys = ON', 'busy_timeout = 500
   // الحل: تغليف db.transaction لتعليق المزامنة طوال المعاملة ثم استئنافها ومزامنة ما تراكم.
   if (typeof db.transaction === 'function') {
     const _transaction = db.transaction.bind(db);
+    let txDepth = 0;   // عمق تداخل المعاملات الحالي (اتصال واحد، لا تزامن)
+    let spSeq = 0;     // مُسلسل أسماء نقاط الحفظ
     db.transaction = (fn) => {
       const wrapped = _transaction(fn);
       return (...args) => {
         syncSuspended++;
-        try { return wrapped(...args); }
-        finally { syncSuspended = Math.max(0, syncSuspended - 1); if (dirty) syncNow(); }
+        txDepth++;
+        try {
+          if (txDepth === 1) return wrapped(...args);
+          // معاملة داخل معاملة مفتوحة: libsql يُصدر BEGIN/COMMIT حرفيين — COMMIT داخلي
+          // يلتزم المعاملة الخارجية نصفياً. نحاكي دلالات better-sqlite3: الداخلية تصير
+          // نقطة حفظ تُحرَّر عند النجاح وتُسترجَع عند الفشل، والالتزام للخارجية وحدها.
+          const sp = `sp_nested_${++spSeq}`;
+          db.exec(`SAVEPOINT ${sp}`);
+          try { const r = fn(...args); db.exec(`RELEASE ${sp}`); return r; }
+          catch (e) { db.exec(`ROLLBACK TO ${sp}`); db.exec(`RELEASE ${sp}`); throw e; }
+        } finally {
+          txDepth--;
+          syncSuspended = Math.max(0, syncSuspended - 1);
+          if (dirty) syncNow();
+        }
       };
     };
   }

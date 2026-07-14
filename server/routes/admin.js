@@ -59,22 +59,28 @@ r.post('/matches/:id/result', (req, res) => {
     return res.status(400).json({ error: 'عند التعادل حدّد المتأهل بركلات الترجيح' });
   }
 
-  db.prepare(`UPDATE matches SET home_score=?, away_score=?, advancing_team=?, status='finished',
-              finished_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?`)
-    .run(home_score, away_score, advancing_team, m.id);
-
-  // bracket propagation
-  const hop = BRACKET[m.round_no];
-  if (hop) {
-    const loser = advancing_team === m.home_team ? m.away_team : m.home_team;
-    if (hop.winner) db.prepare(`UPDATE matches SET ${hop.winner.slot}_team=? WHERE round_no=?`).run(advancing_team, hop.winner.match);
-    if (hop.loser)  db.prepare(`UPDATE matches SET ${hop.loser.slot}_team=?  WHERE round_no=?`).run(loser, hop.loser.match);
-  }
-
-  const { board, granted } = recalcAll({ trigger: 'result', match_id: m.id, actor: req.user.name });
+  /* اعتماد النتيجة عملية ذرية واحدة: حفظ النتيجة + ترقية الأقواس + إعادة احتساب كل
+     النقاط + سجل التدقيق تلتزم معاً أو تتراجع معاً — فلا توجد أبداً حالة «نتيجة معتمدة
+     بنقاط غير محتسبة». معاملات recalcAll الداخلية تصير نقاط حفظ (انظر db.js). */
   const prev = m.status === 'finished' ? `${m.home_score}-${m.away_score} (${m.advancing_team})` : '—';
-  audit(req, 'RESULT_ENTERED', 'match', m.id,
-    `«${prev}» ← «${home_score}-${away_score} (${advancing_team})» · م${m.round_no} ${m.stage_ar}`);
+  let board, granted;
+  db.transaction(() => {
+    db.prepare(`UPDATE matches SET home_score=?, away_score=?, advancing_team=?, status='finished',
+                finished_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?`)
+      .run(home_score, away_score, advancing_team, m.id);
+
+    // bracket propagation
+    const hop = BRACKET[m.round_no];
+    if (hop) {
+      const loser = advancing_team === m.home_team ? m.away_team : m.home_team;
+      if (hop.winner) db.prepare(`UPDATE matches SET ${hop.winner.slot}_team=? WHERE round_no=?`).run(advancing_team, hop.winner.match);
+      if (hop.loser)  db.prepare(`UPDATE matches SET ${hop.loser.slot}_team=?  WHERE round_no=?`).run(loser, hop.loser.match);
+    }
+
+    ({ board, granted } = recalcAll({ trigger: 'result', match_id: m.id, actor: req.user.name }));
+    audit(req, 'RESULT_ENTERED', 'match', m.id,
+      `«${prev}» ← «${home_score}-${away_score} (${advancing_team})» · م${m.round_no} ${m.stage_ar}`);
+  })();
 
   broadcast('match_result', { match_id: m.id, round_no: m.round_no, home_score, away_score, advancing_team });
   announceRecalc(req, board, granted);
@@ -117,17 +123,22 @@ r.post('/matches/:id/reset', (req, res) => {
 
   const prev = `${m.home_score}-${m.away_score} (${m.advancing_team})`;
 
-  db.prepare(`UPDATE matches SET home_score=NULL, away_score=NULL, advancing_team=NULL,
-              status='scheduled', finished_at=NULL WHERE id=?`).run(m.id);
+  /* التصفير ذري كذلك (مرآة الاعتماد): إرجاع المباراة + تراجع الأقواس + إعادة الاحتساب
+     + التدقيق معاً أو لا شيء — فلا تُصفَّر نتيجة وتبقى نقاطها محتسبة في اللوحة. */
+  let board, granted;
+  db.transaction(() => {
+    db.prepare(`UPDATE matches SET home_score=NULL, away_score=NULL, advancing_team=NULL,
+                status='scheduled', finished_at=NULL WHERE id=?`).run(m.id);
 
-  // تراجع عن ترقية الأقواس: أفرِغ الخانات التي ملأتها هذه المباراة في الأدوار اللاحقة
-  if (hop) {
-    if (hop.winner) db.prepare(`UPDATE matches SET ${hop.winner.slot}_team=NULL WHERE round_no=?`).run(hop.winner.match);
-    if (hop.loser)  db.prepare(`UPDATE matches SET ${hop.loser.slot}_team=NULL  WHERE round_no=?`).run(hop.loser.match);
-  }
+    // تراجع عن ترقية الأقواس: أفرِغ الخانات التي ملأتها هذه المباراة في الأدوار اللاحقة
+    if (hop) {
+      if (hop.winner) db.prepare(`UPDATE matches SET ${hop.winner.slot}_team=NULL WHERE round_no=?`).run(hop.winner.match);
+      if (hop.loser)  db.prepare(`UPDATE matches SET ${hop.loser.slot}_team=NULL  WHERE round_no=?`).run(hop.loser.match);
+    }
 
-  const { board, granted } = recalcAll({ trigger: 'reset', match_id: m.id, actor: req.user.name });
-  audit(req, 'RESULT_RESET', 'match', m.id, `«${prev}» → صُفّرت · م${m.round_no} ${m.stage_ar}`);
+    ({ board, granted } = recalcAll({ trigger: 'reset', match_id: m.id, actor: req.user.name }));
+    audit(req, 'RESULT_RESET', 'match', m.id, `«${prev}» → صُفّرت · م${m.round_no} ${m.stage_ar}`);
+  })();
 
   broadcast('match_result', { match_id: m.id, round_no: m.round_no, reset: true });
   broadcast('matches_changed', {});

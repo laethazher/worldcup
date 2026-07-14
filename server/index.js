@@ -13,6 +13,21 @@ import orgsRoutes from './routes/orgs.js';
 import notificationRoutes from './routes/notifications.js';
 import { authRequired } from './auth.js';
 import { sseHandler, closeAllStreams } from './sse.js';
+import { recalcAll } from './scoring.js';
+
+/* شفاء ذاتي عند الإقلاع: نتيجة معتمدة بلا نقاط محتسبة تعني تعطّلاً سابقاً بين حفظ
+   النتيجة وإعادة الاحتساب (الحفظ يلتزم أولاً في مسار الاعتماد) — فتبقى لوحة الترتيب
+   ناقصة نقاط مباراة معتمدة حتى تدخّل يدوي. نكشف الحالة ونعيد الاحتساب بنفس المحرك
+   القائم (حتمي ومتكرر النتيجة، ولا يعمل إطلاقاً حين تكون النقاط سليمة). */
+try {
+  if (db.prepare(`SELECT 1 FROM predictions p JOIN matches m ON m.id = p.match_id
+                  WHERE m.status = 'finished' AND p.points_total IS NULL LIMIT 1`).get()) {
+    const { board } = recalcAll({ trigger: 'boot' });
+    console.log(`✓ شفاء ذاتي عند الإقلاع: أُعيد احتساب نقاط نتيجة معتمدة لم تُحتسب (${board.length} مشاركاً)`);
+  }
+} catch (e) {
+  console.error('⚠ تعذّر الشفاء الذاتي عند الإقلاع:', e.message);
+}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
