@@ -135,7 +135,15 @@
 .winner-meta small { color: var(--muted); }
 .winner-points { font-size: 1.1rem; }
 .winners-list { margin-top: var(--s-4); }
-.winner-row { background: linear-gradient(90deg, rgba(255,255,255,.02), transparent); }
+.winners-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--s-3); }
+.winner-tile { display: grid; gap: var(--s-2); padding: var(--s-3); border: 1px solid var(--card-brd); border-radius: var(--r-lg);
+  background: linear-gradient(180deg, rgba(255,255,255,.03), transparent); box-shadow: var(--shadow-1); text-align: center; }
+.winner-tile-head { display: flex; justify-content: space-between; align-items: center; gap: var(--s-2); }
+.winner-tile-body { display: grid; gap: 4px; min-height: 56px; align-content: start; }
+.winner-tile-body b { font-size: var(--text-sm); }
+.winner-tile-body small { color: var(--muted); }
+.winner-tile-stats { display: grid; gap: 6px; justify-items: center; }
+.winner-tile .avatar { margin: 0 auto; }
 @media (hover: hover) {
   /* لا نلمس حدّ البداية — شارة الميدالية وصبغة صفّك تبقيان أثناء التحويم */
   .board-list .rank-row:hover { transform: translateY(-2px); background: var(--glass-hi);
@@ -193,6 +201,10 @@
   .result-row { grid-template-columns: 1fr; }
   .winners-podium { grid-template-columns: 1fr; }
   .winners-head, .winners-intro { flex-direction: column; align-items: stretch; }
+  .winners-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 480px) {
+  .winners-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 480px) {
   .hero { padding: 34px 18px 32px; }

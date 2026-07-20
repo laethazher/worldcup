@@ -319,22 +319,23 @@ async function renderWinners(g: number): Promise<void> {
       el('span', { class: 'chip gold' }, `${nf.format(rows.length)} اسمًا فاخرًا`))));
   main.append(top3);
 
-  const list = el('section', { class: 'board-list rise-3 winners-list' });
+  const grid = el('section', { class: 'winners-grid rise-3 winners-list' });
   rows.slice(3).forEach((r, idx) => {
-    list.append(el('div', { class: 'rank-row winner-row', dataset: { top: String(r.rank) } },
-      el('span', { class: 'rank-no num' }, `#${nf.format(idx + 4)}`),
+    const medal = r.rank <= 3 ? ['🥇', '🥈', '🥉'][r.rank - 1] : `#${nf.format(r.rank)}`;
+    grid.append(el('article', { class: 'winner-tile' },
+      el('div', { class: 'winner-tile-head' },
+        el('span', { class: 'winner-medal' }, medal),
+        el('span', { class: 'winner-rank num' }, `#${nf.format(r.rank)}`)),
       avatar(r),
-      el('div', { style: 'min-width:0' },
-        el('b', { style: 'font-size:var(--text-sm)' }, r.name),
-        el('div', { class: 'row-meta' },
-          el('span', {}, r.branch || '—'),
-          el('span', { class: 'meta-chip' }, `🎯 ${nf.format(r.exact_count)} دقيقة`),
-          el('span', { class: 'meta-chip' }, `${nf.format(r.accuracy)}٪ دقة`))),
-      el('div', { style: 'text-align:end' },
-        el('div', { class: 'pts num' }, nf.format(r.points)),
-        el('div', { class: 't-xs t-muted num' }, `مركز ${nf.format(r.rank)}`))));
+      el('div', { class: 'winner-tile-body' },
+        el('b', {}, r.name),
+        el('small', {}, r.branch || '—')),
+      el('div', { class: 'winner-tile-stats' },
+        el('span', { class: 'meta-chip' }, `🎯 ${nf.format(r.exact_count)} دقيقة`),
+        el('span', { class: 'meta-chip' }, `${nf.format(r.accuracy)}٪ دقة`),
+        el('span', { class: 'winner-points num' }, nf.format(r.points)))));
   });
-  main.append(list);
+  main.append(grid);
 }
 
 /* ─── لوحة الأقسام ─── */
