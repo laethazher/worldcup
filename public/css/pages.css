@@ -119,6 +119,23 @@
   background: var(--card-bg); border: 1px solid var(--card-brd); border-radius: var(--r-lg);
   backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur));
   box-shadow: var(--shadow-1); }
+.winners-intro { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); }
+.winners-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); width: 100%; }
+.winners-podium { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-4); margin-top: var(--s-5); }
+.winner-card { position: relative; display: grid; justify-items: center; gap: var(--s-2); text-align: center;
+  padding: var(--s-4); background: linear-gradient(180deg, var(--glass-hi), transparent); border: 1px solid var(--card-brd);
+  border-radius: var(--r-lg); box-shadow: var(--shadow-1); overflow: hidden; }
+.winner-card::before { content: ''; position: absolute; inset-inline: 0; top: 0; height: 4px; background: linear-gradient(90deg, var(--crimson), transparent); }
+.winner-card.winner-1 { transform: translateY(-6px); border-color: var(--gold-line); }
+.winner-card.winner-2 { transform: translateY(-3px); border-color: var(--silver-line); }
+.winner-card.winner-3 { border-color: var(--bronze-line); }
+.winner-medal { font-size: 1.5rem; }
+.winner-rank { font-size: var(--text-sm); font-weight: var(--fw-bold); color: var(--muted); }
+.winner-meta { display: grid; gap: 3px; }
+.winner-meta small { color: var(--muted); }
+.winner-points { font-size: 1.1rem; }
+.winners-list { margin-top: var(--s-4); }
+.winner-row { background: linear-gradient(90deg, rgba(255,255,255,.02), transparent); }
 @media (hover: hover) {
   /* لا نلمس حدّ البداية — شارة الميدالية وصبغة صفّك تبقيان أثناء التحويم */
   .board-list .rank-row:hover { transform: translateY(-2px); background: var(--glass-hi);
@@ -174,6 +191,8 @@
 }
 @media (max-width: 768px) {
   .result-row { grid-template-columns: 1fr; }
+  .winners-podium { grid-template-columns: 1fr; }
+  .winners-head, .winners-intro { flex-direction: column; align-items: stretch; }
 }
 @media (max-width: 480px) {
   .hero { padding: 34px 18px 32px; }

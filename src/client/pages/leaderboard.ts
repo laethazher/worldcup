@@ -19,7 +19,7 @@ interface BranchRow { branch: string; points: number; members: number; avg: numb
 const main = document.getElementById('app')!;
 const prevTops = new Map<string, number>();
 let me: Me;
-let tab: 'emp' | 'branch' | 'dept' | 'admins' = 'emp';
+let tab: 'emp' | 'branch' | 'dept' | 'admins' | 'winners' = 'emp';
 
 /* عدّاد أجيال: الخادم يبثّ 'match_result' و'leaderboard' لنفس الحدث —
    بدون هذا الحارس يتسابق تحميلان ويُبنى المحتوى مرتين. الأحدث وحده يرسم. */
@@ -42,12 +42,14 @@ async function load(): Promise<void> {
     el('div', { class: 'lb-controls' },
       el('div', { class: 'tabs' },
         tabBtn('الموظفون', 'emp'),
+        tabBtn('الفائزين', 'winners'),
         tabBtn('الفروع', 'branch'),
         tabBtn('العناوين الوظيفية', 'dept'),
         tabBtn('الإدارة', 'admins')),
       el('a', { href: '/hall.html', class: 'chip gold', style: 'text-decoration:none' }, '🏛 قاعة المجد'))));
 
   if (tab === 'emp') await renderEmployees(g);
+  else if (tab === 'winners') await renderWinners(g);
   else if (tab === 'branch') await renderBranches(g);
   else if (tab === 'dept') await renderDepartments(g);
   else await renderAdmins(g);
@@ -275,6 +277,64 @@ function boardPager(p: { total: number; page: number; pages: number }): HTMLElem
       el('button', { class: 'btn btn-ghost btn-sm', disabled: p.page <= 1 ? '' : null, onclick: () => { view.page--; load(); } }, '‹ السابق'),
       el('span', { class: 'num' }, `${nf.format(p.page)} / ${nf.format(p.pages)}`),
       el('button', { class: 'btn btn-ghost btn-sm', disabled: p.page >= p.pages ? '' : null, onclick: () => { view.page++; load(); } }, 'التالي ›')));
+}
+
+async function renderWinners(g: number): Promise<void> {
+  const holder = el('section', { class: 'rise-2' }, skeletonBoard(5));
+  main.append(holder);
+  const fetched = await get<Row[]>('/api/leaderboard');
+  if (g !== gen) return;
+  holder.remove();
+
+  const rows = fetched.slice(0, 20);
+  if (!rows.length) {
+    main.append(el('div', { class: 'card rise-2' }, emptyState({
+      icon: '🏆', title: 'الترتيب ينتظر أول توقع',
+      msg: 'حين تبدأ المشاركات أول 20 اسمًا من الفائزين ستظهر هنا في تنسيق فاخر',
+      action: { label: 'سجّل توقعك', href: '/matches.html' },
+    })));
+    return;
+  }
+
+  const tops = rows.slice(0, 3);
+  const top3 = el('section', { class: 'winners-podium rise-2' },
+    ...tops.map((r, i) => {
+      const medals = ['🥇', '🥈', '🥉'];
+      const slug = ['winner-1', 'winner-2', 'winner-3'][i];
+      return el('article', { class: `winner-card ${slug}` },
+        el('span', { class: 'winner-medal' }, medals[i]),
+        el('div', { class: 'winner-rank' }, `#${nf.format(r.rank)}`),
+        avatar(r),
+        el('div', { class: 'winner-meta' },
+          el('b', {}, r.name),
+          el('small', {}, r.branch || '—')),
+        el('div', { class: 'winner-points num' }, nf.format(r.points)));
+    }));
+
+  main.append(el('section', { class: 'card card-hero rise-2 winners-intro' },
+    el('div', { class: 'winners-head' },
+      el('div', {},
+        el('p', { class: 'eyebrow' }, 'الفائزون الأقرب إلى الكأس'),
+        el('h3', {}, 'أفضل 20 مشاركة في سباق التوقعات')),
+      el('span', { class: 'chip gold' }, `${nf.format(rows.length)} اسمًا فاخرًا`))));
+  main.append(top3);
+
+  const list = el('section', { class: 'board-list rise-3 winners-list' });
+  rows.slice(3).forEach((r, idx) => {
+    list.append(el('div', { class: 'rank-row winner-row', dataset: { top: String(r.rank) } },
+      el('span', { class: 'rank-no num' }, `#${nf.format(idx + 4)}`),
+      avatar(r),
+      el('div', { style: 'min-width:0' },
+        el('b', { style: 'font-size:var(--text-sm)' }, r.name),
+        el('div', { class: 'row-meta' },
+          el('span', {}, r.branch || '—'),
+          el('span', { class: 'meta-chip' }, `🎯 ${nf.format(r.exact_count)} دقيقة`),
+          el('span', { class: 'meta-chip' }, `${nf.format(r.accuracy)}٪ دقة`))),
+      el('div', { style: 'text-align:end' },
+        el('div', { class: 'pts num' }, nf.format(r.points)),
+        el('div', { class: 't-xs t-muted num' }, `مركز ${nf.format(r.rank)}`))));
+  });
+  main.append(list);
 }
 
 /* ─── لوحة الأقسام ─── */
