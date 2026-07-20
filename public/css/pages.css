@@ -121,12 +121,12 @@
   box-shadow: var(--shadow-1); }
 .winners-intro { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); }
 .winners-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); width: 100%; }
-.winners-podium { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-4); margin-top: var(--s-5); }
+.winners-podium { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-3); margin-top: var(--s-4); }
 .winner-card { position: relative; display: grid; justify-items: center; gap: var(--s-2); text-align: center;
-  padding: var(--s-4); background: linear-gradient(180deg, var(--glass-hi), transparent); border: 1px solid var(--card-brd);
+  padding: var(--s-3); background: linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.005)); border: 1px solid var(--card-brd);
   border-radius: var(--r-lg); box-shadow: var(--shadow-1); overflow: hidden; }
 .winner-card::before { content: ''; position: absolute; inset-inline: 0; top: 0; height: 4px; background: linear-gradient(90deg, var(--crimson), transparent); }
-.winner-card.winner-1 { transform: translateY(-6px); border-color: var(--gold-line); }
+.winner-card.winner-1 { transform: translateY(-6px); border-color: var(--gold-line); box-shadow: 0 0 0 1px rgba(255, 217, 115, .18), var(--shadow-glow); }
 .winner-card.winner-2 { transform: translateY(-3px); border-color: var(--silver-line); }
 .winner-card.winner-3 { border-color: var(--bronze-line); }
 .winner-medal { font-size: 1.5rem; }
@@ -134,20 +134,22 @@
 .winner-meta { display: grid; gap: 3px; }
 .winner-meta small { color: var(--muted); }
 .winner-points { font-size: 1.1rem; }
-.winners-list { margin-top: var(--s-4); }
-.winners-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--s-3); }
-.winner-tile { display: grid; gap: var(--s-2); padding: var(--s-3); border: 1px solid var(--card-brd); border-radius: var(--r-lg);
-  background: linear-gradient(180deg, rgba(255,255,255,.03), transparent); box-shadow: var(--shadow-1); text-align: center; }
+.winners-list { margin-top: var(--s-3); }
+.winners-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--s-2); align-content: start; }
+.winner-tile { position: relative; display: grid; gap: var(--s-2); padding: var(--s-2) var(--s-3); border: 1px solid var(--card-brd); border-radius: var(--r-lg);
+  background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01)); box-shadow: var(--shadow-1); text-align: center; overflow: hidden; }
+.winner-tile::before { content: ''; position: absolute; inset-inline: 0; top: 0; height: 3px; background: linear-gradient(90deg, var(--crimson), transparent); }
 .winner-tile-head { display: flex; justify-content: space-between; align-items: center; gap: var(--s-2); }
-.winner-tile-body { display: grid; gap: 4px; min-height: 56px; align-content: start; }
+.winner-tile-body { display: grid; gap: 4px; min-height: 48px; align-content: start; }
 .winner-tile-body b { font-size: var(--text-sm); }
 .winner-tile-body small { color: var(--muted); }
-.winner-tile-stats { display: grid; gap: 6px; justify-items: center; }
-.winner-tile .avatar { margin: 0 auto; }
+.winner-tile-stats { display: grid; gap: 4px; justify-items: center; }
+.winner-tile .avatar { width: 42px; height: 42px; margin: 0 auto; font-size: .82rem; }
 @media (hover: hover) {
   /* لا نلمس حدّ البداية — شارة الميدالية وصبغة صفّك تبقيان أثناء التحويم */
   .board-list .rank-row:hover { transform: translateY(-2px); background: var(--glass-hi);
     border-block-color: var(--line); border-inline-end-color: var(--line); }
+  .winner-tile:hover { transform: translateY(-2px); border-color: var(--line-strong); }
 }
 /* شارة المراكز الثلاثة — شريط زائف لا يزيح التخطيط (الصفوف كلها متراصفة) */
 .rank-row[data-top] { position: relative; }
@@ -205,6 +207,7 @@
 }
 @media (max-width: 480px) {
   .winners-grid { grid-template-columns: 1fr; }
+  .winner-tile { padding: var(--s-2); }
 }
 @media (max-width: 480px) {
   .hero { padding: 34px 18px 32px; }
